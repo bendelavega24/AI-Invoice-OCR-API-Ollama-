@@ -1,0 +1,836 @@
+"""Streamlit page: browse, search, and drill into processed invoices."""
+import sys
+from datetime import date
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+
+import pandas as pd
+import streamlit as st
+import streamlit.components.v1 as components
+from config.constants import CATEGORY_OPTIONS
+from database.repository import DuplicateInvoiceError, InvoiceLockedError
+from services.invoice_service import (
+    list_invoices, get_invoice, update_invoice, lock_invoice, unlock_invoice, delete_invoice,
+    list_custom_categories, add_custom_category, delete_custom_category,
+)
+from ui.components.nav import render_nav, guard_locked_navigation
+from ui.components.ai_search import render_ai_search
+from services.search_service import apply_search_plan
+from utils.file_utils import resolve_source_file
+from utils.pdf_utils import pdf_to_images
+
+st.set_page_config(page_title="Invoice History", page_icon="🗂️", layout="wide")
+
+render_nav()
+guard_locked_navigation()
+
+st.title("🗂️ Invoice History")
+
+STATUS_OPTIONS = ["processed", "needs_review"]
+
+# Full invoice detail (filename, currency, category, net amount, VAT, etc.)
+# is already available under "View full details for invoice ID" below, so
+# this row table only needs the at-a-glance fields plus the action buttons.
+# ID column width is left untouched; the action-button columns are sized
+# tight to their icon-only buttons, and the freed-up space is redistributed
+# across the remaining data columns.
+ROW_WIDTHS = [0.4, 0.5, 1.2, 1.5, 1.0, 1.0, 1.25, 1.15, 1.0, 0.5, 0.5, 0.5]
+COLUMN_LABELS = [
+    "", "ID", "Invoice #", "Vendor", "Invoice Date", "Date Uploaded", "Total Amount Due", "Category", "Status", "", "", "",
+]
+
+
+def _show_image(source):
+    """st.image()'s width kwarg was renamed use_column_width -> use_container_width
+    partway through Streamlit's 1.x line — support whichever this runtime has."""
+    try:
+        st.image(source, use_container_width=True)
+    except TypeError:
+        st.image(source, use_column_width=True)
+
+
+def _render_invoice_image(inv: dict) -> None:
+    """Resolves and displays the source file for `inv` — first page only
+    for PDFs. Shared by the invoice detail viewer and the Edit Invoice
+    dialog, so a user can see the original document while correcting the
+    extracted fields next to it.
+
+    When an enhanced (auto-cropped/straightened) version exists — see
+    services/invoice_service.py::_generate_enhanced_image() — offers a
+    toggle so the person can compare it against the original photo,
+    CamScanner-style. Defaults to showing the enhanced version when one
+    exists, since that's usually the more useful/readable view; falls
+    back to the original silently if the enhanced file has since gone
+    missing from disk.
+    """
+    resolved_enhanced = resolve_source_file(inv.get("enhanced_image_path"))
+    resolved_original = resolve_source_file(inv.get("source_file"))
+
+    resolved_file = resolved_original
+    if resolved_enhanced:
+        # Keyed by invoice id so each invoice's toggle is independent and
+        # doesn't leak its state onto a different invoice's widget.
+        choice = st.radio(
+            "View",
+            ["Enhanced (auto-cropped)", "Original"],
+            horizontal=True,
+            key=f"img_view_choice_{inv.get('id')}",
+            label_visibility="collapsed",
+        )
+        if choice == "Enhanced (auto-cropped)":
+            resolved_file = resolved_enhanced
+
+    if not resolved_file:
+        st.caption("(no image on disk for this invoice)")
+        return
+    if resolved_file.suffix.lower() == ".pdf":
+        try:
+            pages = pdf_to_images(str(resolved_file))
+        except Exception as e:
+            st.caption(f"(couldn't render PDF preview: {e})")
+            return
+        if pages:
+            _show_image(pages[0])
+            if len(pages) > 1:
+                st.caption(f"Showing page 1 of {len(pages)}.")
+    else:
+        _show_image(str(resolved_file))
+
+
+def _parse_date(value: str):
+    value = (value or "").strip()
+    if not value:
+        return None
+    return date.fromisoformat(value)  # raises ValueError -> caught by caller
+
+
+def _request_detail_switch(target_id: int, enter_edit: bool) -> None:
+    """Central entry point for 'show invoice `target_id` in the View full
+    details section, optionally opening its edit form' — used by the
+    row-table ✏️ buttons and the detail section's own Edit button.
+
+    MUST be wired as a button's on_click callback (never called inline
+    inside an `if button(...):` block) — it sets detail_selected_id, which
+    is the View-full-details selectbox's own widget key. Streamlit forbids
+    setting a widget's session_state key after that widget has already
+    rendered once in the current script run; on_click callbacks run before
+    the next rerun (and its widgets) exist, so they're always safe, no
+    matter where on the page the button sits relative to the selectbox."""
+    st.session_state["detail_selected_id"] = target_id
+    editing_id = st.session_state.get("editing_invoice_id")
+    if editing_id is None or editing_id == target_id:
+        # No conflicting edit in progress — apply immediately.
+        if enter_edit:
+            st.session_state["editing_invoice_id"] = target_id
+    else:
+        # Someone else's edit is open — leave editing_invoice_id alone.
+        # The declarative mismatch check will catch this on rerun and show
+        # the discard/keep-editing prompt instead of jumping straight in.
+        st.session_state["pending_enter_edit"] = enter_edit
+    st.session_state["scroll_to_detail"] = True
+
+
+def _keep_editing_callback(editing_id: int) -> None:
+    """on_click callback for the 'Keep editing' button in the mid-edit
+    switch guard — reverts the selectbox back to the invoice actually
+    being edited. Must be a callback for the same reason as
+    _request_detail_switch: this runs after the selectbox has already
+    rendered once this run."""
+    st.session_state["detail_selected_id"] = editing_id
+    st.session_state.pop("pending_enter_edit", None)
+    st.session_state["scroll_to_detail"] = True
+
+
+def _scroll_to_if_flagged(flag_key: str, anchor_id: str) -> None:
+    """Streamlit has no built-in scroll-to-element — this is the standard
+    workaround: an invisible component iframe that's same-origin with the
+    main page, so it can reach into window.parent.document and scroll it.
+    Only fires once per request (the flag is popped, not just read)."""
+    if st.session_state.pop(flag_key, False):
+        components.html(
+            f"""<script>
+                function scrollBackToTarget() {{
+                    var el = window.parent.document.getElementById("{anchor_id}");
+                    if (el) {{ el.scrollIntoView({{behavior: "auto", block: "start"}}); }}
+                }}
+                // Streamlit can continue laying out widgets for a moment after a
+                // rerun. Retry a few times so Add Category keeps the user at the
+                // full-detail/edit section instead of leaving them at page top.
+                scrollBackToTarget();
+                setTimeout(scrollBackToTarget, 80);
+                setTimeout(scrollBackToTarget, 250);
+                setTimeout(scrollBackToTarget, 600);
+            </script>""",
+            height=0,
+        )
+
+
+def _preserve_optional_numeric(original_value, edited_value: float):
+    """Preserve an originally blank optional amount when the displayed 0.00
+    was not changed, while keeping an explicit stored zero as 0.00.
+
+    Streamlit number_input cannot display ``None`` directly, so optional
+    database amounts are shown as 0.00. Without this guard, merely clicking
+    Save could turn a blank into 0.00 (or, with the old ``value or None``
+    pattern, turn a real 0.00 into NULL).
+    """
+    edited = float(edited_value)
+    if original_value is None and abs(edited) < 1e-12:
+        return None
+    return edited
+
+
+def render_edit_form(inv: dict):
+    """Inline replacement for the old modal Edit Invoice dialog — renders
+    directly in the page flow (not a popup), so it isn't capped to
+    st.dialog's two width presets. See _request_detail_switch for how a
+    user gets routed here."""
+    if inv.get("locked"):
+        st.warning("This invoice is locked. Unlock it on the History page before editing.")
+        if st.button("Close"):
+            st.session_state["editing_invoice_id"] = None
+            st.rerun()
+        return
+
+    st.subheader(f"✏️ Editing Invoice {inv.get('invoice_number') or inv['id']}")
+    st.caption(
+        f"Invoice ID {inv['id']} · Filename: {inv.get('original_filename') or '—'}\n\n"
+        "Correct any fields the OCR/extraction got wrong — useful for invoices "
+        "with misaligned labels/values or blurred scans."
+    )
+
+    main_col, image_col = st.columns([2, 1])
+
+    with main_col:
+        invoice_number = st.text_input("Invoice #", value=inv.get("invoice_number") or "")
+        col1, col2 = st.columns(2)
+        with col1:
+            vendor_name = st.text_input("Vendor", value=inv.get("vendor_name") or "")
+            vendor_address = st.text_input("Vendor Address", value=inv.get("vendor_address") or "")
+            vendor_tax_id = st.text_input("Vendor TIN", value=inv.get("vendor_tax_id") or "")
+            customer_name = st.text_input("Customer", value=inv.get("customer_name") or "")
+            customer_address = st.text_input("Customer Address", value=inv.get("customer_address") or "")
+            customer_tax_id = st.text_input("Customer TIN", value=inv.get("customer_tax_id") or "")
+            plate_number = st.text_input("Plate #", value=inv.get("plate_number") or "")
+            invoice_date_str = st.text_input(
+                "Invoice Date (YYYY-MM-DD)", value=inv.get("invoice_date") or ""
+            )
+            currency = st.text_input("Currency", value=inv.get("currency") or "USD")
+        with col2:
+            subtotal = st.number_input(
+                "Vatable Sales", value=float(inv.get("subtotal") or 0.0), step=0.01, format="%.2f"
+            )
+            vat_exempt_sales = st.number_input(
+                "VAT-Exempt Sales", value=float(inv.get("vat_exempt_sales") or 0.0), step=0.01, format="%.2f"
+            )
+            zero_rated_sales = st.number_input(
+                "Zero-Rated Sales", value=float(inv.get("zero_rated_sales") or 0.0), step=0.01, format="%.2f"
+            )
+            tax_amount = st.number_input(
+                "VAT", value=float(inv.get("tax_amount") or 0.0), step=0.01, format="%.2f"
+            )
+            withholding_tax = st.number_input(
+                "Withholding Tax", value=float(inv.get("withholding_tax") or 0.0), step=0.01, format="%.2f",
+                help="Amount explicitly printed as Less: Withholding Tax / WHT."
+            )
+            # Discount remains an internal field used by accounting reconciliation, but management requested it hidden from the UI.
+            discount = float(inv.get("discount") or 0.0)
+            total_amount = st.number_input(
+                "Total Amount Due", value=float(inv.get("total_amount") or 0.0), step=0.01, format="%.2f"
+            )
+            status = st.selectbox(
+                "Status",
+                STATUS_OPTIONS,
+                index=STATUS_OPTIONS.index(inv["status"]) if inv.get("status") in STATUS_OPTIONS else 0,
+            )
+            custom_categories = list_custom_categories()
+            # Keep the eight built-ins in their fixed order, then existing
+            # custom categories, then the add action directly below Others /
+            # the category list. Management no longer wants category creation
+            # hidden inside the management expander.
+            add_category_choice = "➕ Add new category..."
+            category_options = CATEGORY_OPTIONS + [add_category_choice] + [
+                c for c in custom_categories if c not in CATEGORY_OPTIONS
+            ]
+            current_category = inv.get("category") or "Others"
+            if current_category not in category_options:
+                category_options.append(current_category)
+            category_widget_key = f"category_edit_{inv['id']}"
+            # Streamlit forbids modifying a widget's own session-state key after
+            # that widget has been instantiated in the same run. Category creation
+            # therefore stores the desired selection in a separate pending key; on
+            # the next rerun we apply it *before* constructing the selectbox.
+            category_pending_key = f"category_edit_pending_{inv['id']}"
+            if category_pending_key in st.session_state:
+                st.session_state[category_widget_key] = st.session_state.pop(category_pending_key)
+            elif category_widget_key not in st.session_state:
+                st.session_state[category_widget_key] = current_category
+            category = st.selectbox(
+                "Category",
+                category_options,
+                key=category_widget_key,
+                help="Choose a category or select 'Add new category...' directly below Others to create one. The eight built-in categories cannot be deleted.",
+            )
+            if category == add_category_choice:
+                new_category = st.text_input(
+                    "New category", key=f"new_category_{inv['id']}", placeholder="Enter a category name"
+                )
+                if st.button("Add Category", key=f"add_category_{inv['id']}"):
+                    try:
+                        added = add_custom_category(new_category)
+                        # Do not mutate category_widget_key here: its selectbox has
+                        # already been instantiated in this run. Apply this pending
+                        # value before widget creation on the next rerun instead.
+                        st.session_state[category_pending_key] = added
+                        st.session_state["scroll_to_detail"] = True
+                        st.success(f"Added category: {added}")
+                        st.rerun()
+                    except ValueError as e:
+                        st.error(str(e))
+                # Do not save the action label as an invoice category if the
+                # user submits the edit form before creating a category.
+                category = current_category
+
+            with st.expander("🗑️ Manage custom categories"):
+                custom_now = list_custom_categories()
+                if custom_now:
+                    delete_choice = st.selectbox("Custom category to delete", custom_now, key=f"delete_category_{inv['id']}")
+                    st.caption(
+                        "Only user-created categories can be deleted. Invoices using the deleted category are "
+                        "automatically re-analysed and reassigned to the remaining built-in/custom categories."
+                    )
+                    if st.button("Delete Custom Category", key=f"delete_custom_category_{inv['id']}"):
+                        try:
+                            changed = delete_custom_category(delete_choice)
+                            st.success(f"Deleted {delete_choice}. Re-analysed {changed} affected invoice(s).")
+                            st.rerun()
+                        except ValueError as e:
+                            st.error(str(e))
+                else:
+                    st.caption("No custom categories have been added yet.")
+
+        computed = subtotal + tax_amount + zero_rated_sales + vat_exempt_sales - discount - withholding_tax
+        if abs(computed - total_amount) > max(0.02 * total_amount, 0.01):
+            st.warning(
+                f"The displayed financial fields plus internal deductions calculate to {computed:,.2f}, which doesn't "
+                f"match Total Amount Due ({total_amount:,.2f}). You can still save if that's "
+                f"correct for this invoice."
+            )
+
+        st.markdown("**Items purchased**")
+        st.caption(
+            "Edit any cell directly. To add a row, start typing in the blank row at the "
+            "bottom. To delete a row, select it (checkbox on the left) and press the 🗑️ "
+            "icon that appears above the table."
+        )
+        line_items_df = pd.DataFrame(
+            [
+                {
+                    "Description": li.get("description") or "",
+                    "Quantity": float(li.get("quantity") or 0.0),
+                    "Unit Price": float(li.get("unit_price") or 0.0),
+                    "Total Unit Price": float(li.get("amount") or 0.0),
+                }
+                for li in (inv.get("line_items") or [])
+            ],
+            columns=["Description", "Quantity", "Unit Price", "Total Unit Price"],
+        )
+        edited_line_items = st.data_editor(
+            line_items_df,
+            num_rows="dynamic",
+            hide_index=True,
+            use_container_width=True,
+            key=f"line_items_editor_{inv['id']}",
+            column_config={
+                "Description": st.column_config.TextColumn("Description"),
+                "Quantity": st.column_config.NumberColumn("Quantity", min_value=0.0, step=1.0, format="%.2f"),
+                "Unit Price": st.column_config.NumberColumn("Unit Price", min_value=0.0, step=0.01, format="%.2f"),
+                "Total Unit Price": st.column_config.NumberColumn("Total Unit Price", min_value=0.0, step=0.01, format="%.2f"),
+            },
+        )
+        # New blank rows from "dynamic" mode come back with NaN, not 0/"" —
+        # fillna before summing or reading values below, or the sum/save
+        # step would silently propagate NaN into the database.
+        edited_line_items = edited_line_items.fillna(
+            {"Description": "", "Quantity": 0.0, "Unit Price": 0.0, "Total Unit Price": 0.0}
+        )
+        items_sum = edited_line_items["Total Unit Price"].sum() if not edited_line_items.empty else 0.0
+        st.caption(f"Sum of Total Unit Price: {items_sum:,.2f}")
+
+        c_save, c_cancel = st.columns(2)
+        if c_save.button("💾 Save changes", type="primary", use_container_width=True):
+            if not invoice_number.strip():
+                st.error("Invoice # can't be empty.")
+                return
+            if not vendor_name.strip():
+                st.error("Vendor can't be empty.")
+                return
+            try:
+                parsed_invoice_date = _parse_date(invoice_date_str)
+            except ValueError:
+                st.error("Date must be in YYYY-MM-DD format.")
+                return
+
+            new_line_items = []
+            for _, row in edited_line_items.iterrows():
+                description = str(row["Description"]).strip()
+                if not description:
+                    continue  # blank template row from "+" that was never filled in
+                new_line_items.append({
+                    "description": description,
+                    "quantity": float(row["Quantity"]),
+                    "unit_price": float(row["Unit Price"]),
+                    "amount": float(row["Total Unit Price"]),
+                })
+
+            updates = {
+                "invoice_number": invoice_number.strip(),
+                "vendor_name": vendor_name.strip().upper(),
+                "vendor_address": vendor_address.strip() or None,
+                "vendor_tax_id": vendor_tax_id.strip() or None,
+                "customer_name": customer_name.strip().upper() or None,
+                "customer_address": customer_address.strip() or None,
+                "customer_tax_id": customer_tax_id.strip() or None,
+                "plate_number": plate_number.strip().upper() or None,
+                "invoice_date": parsed_invoice_date,
+                "currency": currency.strip() or "USD",
+                "subtotal": _preserve_optional_numeric(inv.get("subtotal"), subtotal),
+                "tax_amount": _preserve_optional_numeric(inv.get("tax_amount"), tax_amount),
+                # Discount is intentionally hidden from the UI. Never resubmit it
+                # during a manual edit: preserve the stored internal value exactly.
+                "withholding_tax": _preserve_optional_numeric(inv.get("withholding_tax"), withholding_tax),
+                "zero_rated_sales": _preserve_optional_numeric(inv.get("zero_rated_sales"), zero_rated_sales),
+                "vat_exempt_sales": _preserve_optional_numeric(inv.get("vat_exempt_sales"), vat_exempt_sales),
+                "total_amount": _preserve_optional_numeric(inv.get("total_amount"), total_amount),
+                "status": "processed",
+                "category": category,
+                "line_items": new_line_items,
+            }
+            try:
+                update_invoice(inv["id"], updates)
+            except DuplicateInvoiceError as e:
+                st.error(str(e))
+                return
+            except InvoiceLockedError as e:
+                st.error(str(e))
+                return
+
+            st.session_state["editing_invoice_id"] = None
+            st.success("Invoice updated.")
+            st.rerun()
+
+        if c_cancel.button("Cancel", use_container_width=True):
+            st.session_state["editing_invoice_id"] = None
+            st.rerun()
+
+    with image_col:
+        st.markdown("**🖼️ Invoice Image**")
+        _render_invoice_image(inv)
+
+
+@st.dialog("🗑️ Delete Invoice")
+def delete_invoice_dialog(inv: dict, scroll_to_prev_month: bool = False):
+    st.warning(
+        f"Delete invoice **{inv['invoice_number']}** (ID {inv['id']}, "
+        f"{inv.get('vendor_name') or 'unknown vendor'})? This can't be undone."
+    )
+    c_confirm, c_cancel = st.columns(2)
+    if c_confirm.button("🗑️ Yes, delete", type="primary", use_container_width=True):
+        try:
+            delete_invoice(inv["id"])
+        except InvoiceLockedError:
+            st.error("This invoice is locked. Unlock it first, then delete.")
+            return
+        except ValueError:
+            st.error("Invoice not found — it may have already been deleted.")
+            return
+        if scroll_to_prev_month:
+            st.session_state["scroll_to_prev_month"] = True
+        st.success("Invoice deleted.")
+        st.rerun()
+    if c_cancel.button("Cancel", use_container_width=True):
+        st.rerun()
+
+
+@st.dialog("🗑️ Delete Selected Invoices")
+def bulk_delete_dialog(selected: list[dict]):
+    st.warning(
+        f"Delete **{len(selected)}** selected invoice(s)? This can't be undone.\n\n"
+        + "\n".join(f"- {inv['invoice_number']} ({inv.get('vendor_name') or 'unknown vendor'})" for inv in selected[:20])
+        + ("\n- ..." if len(selected) > 20 else "")
+    )
+    c_confirm, c_cancel = st.columns(2)
+    if c_confirm.button(f"🗑️ Yes, delete {len(selected)}", type="primary", use_container_width=True):
+        failures = []
+        for inv in selected:
+            try:
+                delete_invoice(inv["id"])
+            except (InvoiceLockedError, ValueError) as e:
+                failures.append(f"{inv['invoice_number']}: {e}")
+        if failures:
+            st.error("Some invoices couldn't be deleted:\n" + "\n".join(f"- {f}" for f in failures))
+        else:
+            st.success(f"Deleted {len(selected)} invoice(s).")
+            st.rerun()
+    if c_cancel.button("Cancel", use_container_width=True):
+        st.rerun()
+
+
+
+@st.dialog("🔒 Lock Selected Invoices")
+def bulk_lock_dialog(selected: list[dict]):
+    st.info(
+        f"Lock **{len(selected)}** selected invoice(s)? Locked invoices cannot be edited or deleted until unlocked."
+    )
+    c_confirm, c_cancel = st.columns(2)
+    if c_confirm.button(f"🔒 Yes, lock {len(selected)}", type="primary", use_container_width=True):
+        failures = []
+        for inv in selected:
+            try:
+                lock_invoice(inv["id"])
+            except ValueError as e:
+                failures.append(f"{inv['invoice_number']}: {e}")
+        if failures:
+            st.error("Some invoices couldn't be locked:\n" + "\n".join(f"- {f}" for f in failures))
+        else:
+            st.success(f"Locked {len(selected)} invoice(s).")
+            st.rerun()
+    if c_cancel.button("Cancel", use_container_width=True):
+        st.rerun()
+
+def render_invoice_row_table(invoices: list[dict], key_prefix: str, scope_key: str) -> None:
+    """Renders the header + per-row select/Edit/Lock table for a given
+    invoice list. `scope_key` (shared across categories within the same
+    month section) is what the page-level "select all" checkbox and
+    "delete selected" button key off of — `key_prefix` stays
+    category-specific so edit/lock/delete button keys stay unique."""
+    header_cols = st.columns(ROW_WIDTHS)
+    for col, label in zip(header_cols, COLUMN_LABELS):
+        # "**" + "" + "**" is "****", which Markdown parses as a horizontal
+        # rule (4+ asterisks = thematic break) rather than empty bold text —
+        # that's what was drawing a line above the button columns.
+        col.markdown(f"**{label}**" if label else "")
+
+    for inv in invoices:
+        locked = bool(inv.get("locked"))
+        row_cols = st.columns(ROW_WIDTHS)
+        row_cols[0].checkbox(
+            "", key=f"sel_{scope_key}_{inv['id']}", disabled=locked,
+            label_visibility="collapsed", help="Unlock first to select" if locked else "Select",
+        )
+        row_cols[1].write(f"{'🔒' if locked else ''} {inv['id']}")
+        row_cols[2].write(inv["invoice_number"])
+        row_cols[3].write(inv["vendor_name"])
+        row_cols[4].write(inv.get("invoice_date") or "-")
+        row_cols[5].write(inv.get("date_uploaded") or (inv.get("created_at") or "")[:10] or "-")
+        row_cols[6].write(f"{(inv.get('total_amount') or 0):,.2f} {inv.get('currency') or ''}".strip())
+        row_cols[7].write(inv.get("category") or "Others")
+        row_cols[8].write(inv.get("status") or "-")
+        row_cols[9].button(
+            "✏️", key=f"edit_btn_{key_prefix}_{inv['id']}", disabled=locked, help="Edit",
+            on_click=_request_detail_switch, args=(inv["id"],), kwargs={"enter_edit": True},
+        )
+        lock_icon = "🔓" if locked else "🔒"
+        if row_cols[10].button(
+            lock_icon, key=f"lock_btn_{key_prefix}_{inv['id']}",
+            help="Unlock" if locked else "Lock (confirm this row is correct)",
+        ):
+            if locked:
+                unlock_invoice(inv["id"])
+            else:
+                lock_invoice(inv["id"])
+            if scope_key != "current":
+                st.session_state["scroll_to_prev_month"] = True
+            st.rerun()
+        if row_cols[11].button(
+            "🗑️", key=f"delete_btn_{key_prefix}_{inv['id']}",
+            disabled=locked, help="Unlock first to delete" if locked else "Delete",
+        ):
+            delete_invoice_dialog(inv, scroll_to_prev_month=(scope_key != "current"))
+
+
+def _select_all_callback(scope_key: str, invoice_ids: list[int], value: bool) -> None:
+    for inv_id in invoice_ids:
+        st.session_state[f"sel_{scope_key}_{inv_id}"] = value
+
+
+def render_invoice_table(invoices: list[dict], scope_key: str) -> None:
+    """Render ONE filtered table for a month.
+
+    Category is a normal column and the existing category multiselect remains
+    the single way to narrow by category.  This avoids the previous redundant
+    UI where the page both filtered by category and split the result into one
+    separate table per category.
+    """
+    if not invoices:
+        st.info("No invoices for this period.")
+        return
+
+    unlocked_ids = [inv["id"] for inv in invoices if not inv.get("locked")]
+    sel_c1, sel_c2, sel_c3 = st.columns([1, 1.6, 1.6])
+    sel_c1.checkbox(
+        f"Select all ({len(unlocked_ids)})",
+        key=f"select_all_{scope_key}",
+        disabled=not unlocked_ids,
+        on_change=lambda: _select_all_callback(
+            scope_key, unlocked_ids, st.session_state[f"select_all_{scope_key}"]
+        ),
+    )
+    selected = [inv for inv in invoices if st.session_state.get(f"sel_{scope_key}_{inv['id']}")]
+    if sel_c2.button(
+        f"🔒 Lock selected ({len(selected)})", disabled=not selected, key=f"bulk_lock_{scope_key}",
+    ):
+        bulk_lock_dialog(selected)
+    if sel_c3.button(
+        f"🗑️ Delete selected ({len(selected)})", disabled=not selected, key=f"bulk_delete_{scope_key}",
+    ):
+        bulk_delete_dialog(selected)
+
+    locked_count = sum(1 for inv in invoices if inv.get("locked"))
+    st.caption(f"{len(invoices)} invoice(s) shown • {locked_count} locked")
+    # Keep long History tables usable without making the entire page grow
+    # indefinitely. Streamlit 1.38 supports fixed-height containers with
+    # native scrolling; short tables stay unboxed for a cleaner layout.
+    if len(invoices) > 8:
+        with st.container(height=460, border=True):
+            render_invoice_row_table(invoices, key_prefix=scope_key, scope_key=scope_key)
+    else:
+        render_invoice_row_table(invoices, key_prefix=scope_key, scope_key=scope_key)
+    total = sum(inv.get("total_amount") or 0 for inv in invoices)
+    st.caption(f"Sum of Total Amount Due: {total:,.2f}")
+
+
+def render_filters(scope_key: str, invoices_pool: list[dict]) -> list[dict]:
+    """Render the same search/filter controls for Current and Previous Month.
+
+    The section itself is still determined by Date Uploaded. The additional
+    invoice-month filter narrows Invoice Date *inside* that upload-month pool.
+    """
+    vendors = sorted({inv["vendor_name"] for inv in invoices_pool if inv.get("vendor_name")})
+    custom_categories = list_custom_categories()
+    all_categories = CATEGORY_OPTIONS + custom_categories
+    ai_plan = render_ai_search(
+        page="history",
+        key=f"history_{scope_key}",
+        placeholder="e.g. Show invoices dated June to October above 10,000 pesos",
+        context={
+            "statuses": STATUS_OPTIONS,
+            "categories": all_categories,
+            "vendors": vendors[:100],
+        },
+        scope_note=(
+            "AI Search is applied inside this Date Uploaded section. "
+            "It can still filter Invoice Date, amounts, vendor/customer, category, status, and lock state."
+        ),
+    )
+
+    invoice_month_keys = sorted(
+        {_invoice_month_key(inv) for inv in invoices_pool if _invoice_month_key(inv) != "unknown"},
+        reverse=True,
+    )
+    invoice_month_labels = {_month_label(k): k for k in invoice_month_keys}
+
+    c1, c2, c3, c4 = st.columns(4)
+    statuses = c1.multiselect("Filter by status", STATUS_OPTIONS, key=f"status_filter_{scope_key}")
+    invoice_months = c2.multiselect(
+        "Filter by month(Invoice Date)",
+        list(invoice_month_labels.keys()),
+        key=f"invoice_month_filter_{scope_key}",
+    )
+    categories = c3.multiselect(
+        "Filter by category", all_categories, key=f"category_filter_{scope_key}"
+    )
+    vendor_sel = c4.multiselect("Filter by vendor", vendors, key=f"vendor_filter_{scope_key}")
+
+    filtered = invoices_pool
+    if statuses:
+        filtered = [inv for inv in filtered if inv.get("status") in statuses]
+    if invoice_months:
+        chosen_invoice_months = {invoice_month_labels[label] for label in invoice_months}
+        filtered = [inv for inv in filtered if _invoice_month_key(inv) in chosen_invoice_months]
+    if categories:
+        filtered = [inv for inv in filtered if (inv.get("category") or "Others") in categories]
+    if vendor_sel:
+        filtered = [inv for inv in filtered if inv.get("vendor_name") in vendor_sel]
+    filtered = apply_search_plan(filtered, ai_plan, "history")
+    return filtered
+
+
+def _invoice_month_key(inv: dict) -> str:
+    """'YYYY-MM' bucket based on Invoice Date, for the optional History filter."""
+    raw = str(inv.get("invoice_date") or "")
+    return raw[:7] if len(raw) >= 7 else "unknown"
+
+
+def _month_key(inv: dict) -> str:
+    """'YYYY-MM' bucket based only on Date Uploaded, not the invoice's document date."""
+    raw = inv.get("date_uploaded") or (inv.get("created_at") or "")[:10]
+    return raw[:7] if raw else "unknown"
+
+
+def _month_label(month_key: str) -> str:
+    try:
+        y, m = month_key.split("-")
+        return date(int(y), int(m), 1).strftime("%B %Y")
+    except (ValueError, AttributeError):
+        return "Unknown date"
+
+
+all_invoices = list_invoices(limit=2000, status=None)
+
+if not all_invoices:
+    st.info("No invoices found.")
+    invoices = []
+else:
+    by_month: dict[str, list[dict]] = {}
+    for inv in all_invoices:
+        by_month.setdefault(_month_key(inv), []).append(inv)
+
+    current_key = date.today().strftime("%Y-%m")
+    current_pool = by_month.get(current_key, [])
+
+    st.subheader(f"📅 {_month_label(current_key)} — Current Month")
+    current_invoices = render_filters("current", current_pool)
+    render_invoice_table(current_invoices, scope_key="current")
+
+    past_keys = sorted(
+        (k for k in by_month if k != current_key and k != "unknown"), reverse=True
+    )
+    invoices = list(current_invoices)  # feeds the detail viewer below
+
+    if past_keys:
+        st.divider()
+        st.markdown('<div id="prev-month-anchor"></div>', unsafe_allow_html=True)
+        # Guard against a stale selection if the previously-chosen month's
+        # last invoice just got deleted, leaving it no longer in past_keys.
+        if st.session_state.get("prev_month_selected") not in ([None] + past_keys):
+            st.session_state["prev_month_selected"] = None
+
+        chosen_key = st.selectbox(
+            "📂 View a previous month",
+            [None] + past_keys,
+            # format_func means the STORED value is the stable month key
+            # ("2026-06"), while only the DISPLAYED label embeds the live
+            # invoice count — so deleting/locking a row (which changes that
+            # count) can't break the identity match and reset the selection
+            # back to "Select a month...".
+            format_func=lambda k: "Select a month..." if k is None else f"{_month_label(k)} ({len(by_month[k])})",
+            key="prev_month_selected",
+        )
+        if chosen_key:
+            st.subheader(f"📅 {_month_label(chosen_key)}")
+            prev_pool = by_month[chosen_key]
+            prev_invoices = render_filters(chosen_key, prev_pool)
+            render_invoice_table(prev_invoices, scope_key=chosen_key)
+            invoices += prev_invoices
+
+if invoices:
+    st.divider()
+    st.markdown('<div id="invoice-detail-anchor"></div>', unsafe_allow_html=True)
+
+    valid_ids = [inv["id"] for inv in invoices]
+    selected_id = st.selectbox(
+        "View full details for invoice ID", [None] + valid_ids, key="detail_selected_id"
+    )
+    editing_id = st.session_state.get("editing_invoice_id")
+
+    if editing_id is not None and selected_id != editing_id:
+        # The dropdown (directly, or via a row-table ✏️ button on a
+        # different invoice) was changed while an edit was still open —
+        # don't silently discard it.
+        st.warning(
+            f"⚠️ You have unsaved edits open for invoice ID {editing_id}. "
+            "Switching now will discard them."
+        )
+        wc1, wc2 = st.columns(2)
+        if wc1.button("Discard changes and switch", type="primary", key="discard_switch"):
+            st.session_state["editing_invoice_id"] = (
+                selected_id if st.session_state.pop("pending_enter_edit", False) else None
+            )
+            st.session_state["scroll_to_detail"] = True
+            st.rerun()
+        wc2.button("Keep editing", key="keep_editing", on_click=_keep_editing_callback, args=(editing_id,))
+    elif selected_id:
+        detail = get_invoice(selected_id)
+
+        if editing_id == selected_id:
+            render_edit_form(detail)
+        else:
+            st.subheader(f"Invoice {detail['invoice_number']}")
+            c1, c2 = st.columns(2)
+            c1.write(f"**Vendor:** {detail['vendor_name']}")
+            c1.write(f"**Vendor Address:** {detail.get('vendor_address') or '-'}")
+            c1.write(f"**Vendor TIN:** {detail.get('vendor_tax_id') or '-'}")
+            for label, field in (("Customer", "customer_name"),
+                                 ("Customer Address", "customer_address"),
+                                 ("Customer TIN", "customer_tax_id"),
+                                 ("Plate #", "plate_number")):
+                value = str(detail.get(field) or "").strip()
+                if value and value not in ("-", "—"):
+                    c1.write(f"**{label}:** {value}")
+            c1.write(f"**Invoice Date:** {detail.get('invoice_date') or '-'}")
+            c1.write(f"**Date Uploaded:** {detail.get('date_uploaded') or (detail.get('created_at') or '')[:10] or '-'}")
+            c1.write(f"**Filename:** {detail.get('original_filename') or '-'}")
+            c1.write(f"**Category:** {detail.get('category') or '-'}")
+            _subtotal = detail.get("subtotal")
+            _subtotal_display = (
+                f"{_subtotal:,.2f} {detail.get('currency')}" if _subtotal is not None
+                else "— (not extracted)"
+            )
+            c2.write(f"**Vatable Sales:** {_subtotal_display}")
+            c2.write(f"**VAT-Exempt Sales:** {(detail.get('vat_exempt_sales') or 0):,.2f} {detail.get('currency')}")
+            c2.write(f"**Zero-Rated Sales:** {(detail.get('zero_rated_sales') or 0):,.2f} {detail.get('currency')}")
+            c2.write(f"**VAT:** {(detail.get('tax_amount') or 0):,.2f} {detail.get('currency')}")
+            c2.write(f"**Withholding Tax:** {(detail.get('withholding_tax') or 0):,.2f} {detail.get('currency')}")
+            c2.write(f"**Total Amount Due:** {(detail.get('total_amount') or 0):,.2f} {detail.get('currency')}")
+            c2.write(f"**Status:** {detail.get('status')}")
+            c2.write(f"**Locked:** {'🔒 Yes' if detail.get('locked') else '🔓 No'}")
+
+            line_items = detail.get("line_items") or []
+            if line_items:
+                st.markdown("**Items purchased:**")
+                st.dataframe(
+                    [
+                        {
+                            "Item": li.get("description") or "-",
+                            "Qty": li.get("quantity") or 0,
+                            "Unit Price": f"{(li.get('unit_price') or 0):,.2f}",
+                            "Total Unit Price": f"{(li.get('amount') or 0):,.2f}",
+                        }
+                        for li in line_items
+                    ],
+                    hide_index=True,
+                    use_container_width=True,
+                )
+                items_sum = sum(li.get("amount") or 0 for li in line_items)
+                st.caption(f"Sum of Total Unit Price: {items_sum:,.2f} {detail.get('currency') or ''}".strip())
+            else:
+                st.caption("No individual line items were extracted for this invoice.")
+
+            b1, b2, b3 = st.columns(3)
+            b1.button(
+                "✏️ Edit this invoice", disabled=bool(detail.get("locked")), use_container_width=True,
+                on_click=_request_detail_switch, args=(detail["id"],), kwargs={"enter_edit": True},
+            )
+            lock_label = "🔓 Unlock this invoice" if detail.get("locked") else "🔒 Lock this invoice"
+            if b2.button(lock_label, use_container_width=True):
+                if detail.get("locked"):
+                    unlock_invoice(detail["id"])
+                else:
+                    lock_invoice(detail["id"])
+                st.rerun()
+            if b3.button(
+                "🗑️ Delete this invoice", disabled=bool(detail.get("locked")), use_container_width=True
+            ):
+                delete_invoice_dialog(detail)
+
+            if detail.get("vision_notes"):
+                st.warning("🔍 **Vision cross-check flagged possible mismatches:**\n\n"
+                           + "\n".join(f"- {line}" for line in detail["vision_notes"].split("\n")))
+
+            with st.expander("🖼️ Invoice image"):
+                _render_invoice_image(detail)
+
+
+    _scroll_to_if_flagged("scroll_to_detail", "invoice-detail-anchor")
+    _scroll_to_if_flagged("scroll_to_prev_month", "prev-month-anchor")
