@@ -34,13 +34,80 @@ def label() -> str:
     return f"LLM API ({host})"
 
 
+# --- Engine mode (switchable at runtime from the UI sidebar) ------------------
+#   api_only    -> hosted API only, no Ollama fallback
+#   ollama_only -> local Ollama only, the API is never called
+#   both        -> API first, local Ollama as automatic fallback
+MODES = ("api_only", "ollama_only", "both")
+MODE_LABELS = {
+    "api_only": "API only",
+    "ollama_only": "Ollama only (local)",
+    "both": "Both (API + Ollama fallback)",
+}
+_mode_override: str | None = None
+
+
+def default_mode() -> str:
+    """Mode implied by .env (LLM_PROVIDER / LLM_FALLBACK_TO_OLLAMA)."""
+    if settings.LLM_PROVIDER != "openrouter":
+        return "ollama_only"
+    return "both" if settings.LLM_FALLBACK_TO_OLLAMA else "api_only"
+
+
+def _mode_file():
+    return settings.JSON_DIR / "llm_mode.json"
+
+
+def get_mode() -> str:
+    return _mode_override if _mode_override in MODES else default_mode()
+
+
+def set_mode(mode: str, *, persist: bool = True) -> None:
+    """Switch engine mode for the whole process (and remember it across restarts)."""
+    global _mode_override
+    if mode not in MODES:
+        raise ValueError(f"Unknown LLM mode {mode!r}; expected one of {MODES}")
+    if mode != get_mode():
+        reset_cooldown()
+    _mode_override = mode
+    if persist:
+        try:
+            import json
+            _mode_file().write_text(json.dumps({"mode": mode}), encoding="utf-8")
+        except OSError as exc:
+            logger.warning(f"Could not save LLM mode: {exc}")
+
+
+def load_saved_mode() -> None:
+    """Restore the mode chosen in the UI before the last restart (no-op if none)."""
+    global _mode_override
+    if _mode_override is not None:
+        return
+    try:
+        import json
+        saved = json.loads(_mode_file().read_text(encoding="utf-8")).get("mode")
+        if saved in MODES:
+            _mode_override = saved
+    except (OSError, ValueError):
+        pass
+
+
+def clear_mode_override() -> None:
+    global _mode_override
+    _mode_override = None
+
+
+def api_configured() -> bool:
+    return bool(settings.OPENROUTER_API_KEY)
+
+
 def using_openrouter() -> bool:
-    """True when OpenRouter is the *configured* provider."""
-    return settings.LLM_PROVIDER == "openrouter"
+    """True when the hosted API may be used (mode api_only or both)."""
+    return get_mode() != "ollama_only"
 
 
 def fallback_enabled() -> bool:
-    return using_openrouter() and settings.LLM_FALLBACK_TO_OLLAMA
+    return get_mode() == "both"
 
 
 def _status_of(exc) -> int | None:
@@ -63,7 +130,7 @@ def note_openrouter_failure(exc_or_status=None) -> None:
     _cooldown_until = time.monotonic() + max(0, seconds)
     logger.warning(
         f"{label()} failed (status={status}); using local Ollama for the next {seconds}s"
-        if settings.LLM_FALLBACK_TO_OLLAMA else f"{label()} failed (status={status})"
+        if fallback_enabled() else f"{label()} failed (status={status})"
     )
 
 
@@ -76,7 +143,7 @@ def pick_provider() -> str:
     """Provider to try FIRST for the next request: "openrouter" or "ollama"."""
     if not using_openrouter():
         return "ollama"
-    if settings.LLM_FALLBACK_TO_OLLAMA and time.monotonic() < _cooldown_until:
+    if fallback_enabled() and time.monotonic() < _cooldown_until:
         return "ollama"
     return "openrouter"
 

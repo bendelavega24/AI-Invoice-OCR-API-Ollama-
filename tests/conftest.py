@@ -10,4 +10,5 @@ from config.settings import settings
 @pytest.fixture(autouse=True)
 def _default_provider_is_ollama(monkeypatch):
     llm_client.reset_cooldown()  # failover cooldown is process-wide state
+    llm_client.clear_mode_override()  # UI-chosen engine mode is process-wide state
     monkeypatch.setattr(settings, "LLM_PROVIDER", "ollama")
