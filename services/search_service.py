@@ -45,7 +45,7 @@ INVOICE_NUMBER_FIELDS = {
     "current_charges_total",
     "previous_balance",
 }
-INVOICE_CHOICE_FIELDS = {"category", "status", "currency"}
+INVOICE_CHOICE_FIELDS = {"category", "status", "payment_status", "currency"}
 INVOICE_BOOLEAN_FIELDS = {"locked"}
 # Presence/absence checks are allowed for every searchable invoice field. This
 # powers requests such as "with plate number", "without customer TIN", or
@@ -89,6 +89,7 @@ FIELD_LABELS = {
     "source_file": "Source File",
     "enhanced_image_path": "Enhanced Image",
     "payment_terms": "Payment Terms",
+    "payment_status": "Payment Status",
     "ocr_engine_used": "OCR Engine",
     "raw_text": "Raw OCR Text",
     "vision_notes": "Vision Notes",

@@ -127,7 +127,10 @@ if st.session_state.upload_results:
                 st.warning(f"{r['file']}: Image verification was incomplete. OCR/text results were saved; review them against the original invoice.")
             invoice_id = r.get("invoice_id")
             vendor = r.get("vendor_name") or "-"
-            total_text = f"{r.get('total_amount', 0):,.2f} {r.get('currency', '')}".strip()
+            total_value = r.get("total_amount")
+            total_text = (f"{total_value:,.2f} {r.get('currency', '')}".strip()
+                          if total_value is not None else "Not specified")
+            payment_text = (r.get("payment_status") or "unknown").title()
             status_text = r.get("status") or "-"
             ocr_text = r.get("ocr_engine_used") or "-"
             time_text = f"{elapsed:.1f}s" if elapsed is not None else "-"
@@ -138,17 +141,22 @@ if st.session_state.upload_results:
             # navigating to History.
             row_label = (
                 f"✅ {r['file']} — {r.get('invoice_number', 'N/A')}\n\n"
-                f"Vendor: {vendor} · Total: {total_text} · Status: {status_text} · "
+                f"Vendor: {vendor} · Total: {total_text} · Payment: {payment_text} · Status: {status_text} · "
                 f"OCR: {ocr_text} · Processing time: {time_text}{review_text}"
             )
             help_lines = [
                 "Open this saved invoice in History.",
                 f"Vendor: {vendor}",
                 f"Total: {total_text}",
+                f"Payment: {payment_text}",
                 f"Status: {status_text}",
                 f"OCR engine used: {ocr_text}",
                 f"Processing time: {time_text}",
             ]
+            if r.get("quality_warnings"):
+                st.warning(f"{r['file']}: " + " ".join(r["quality_warnings"]))
+                help_lines.append("Review warnings:")
+                help_lines.extend(r["quality_warnings"])
             if r.get("vision_notes"):
                 help_lines.append("Vision cross-check notes:")
                 help_lines.extend(r["vision_notes"].split("\n"))

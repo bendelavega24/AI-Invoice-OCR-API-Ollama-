@@ -1,6 +1,7 @@
 """Data-access layer — keeps SQLAlchemy specifics out of the services layer."""
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
+import re
 from sqlalchemy.exc import IntegrityError
 from database.models import InvoiceORM, LineItemORM, VendorORM, CustomCategoryORM, UserORM
 from models.invoice import Invoice
@@ -11,18 +12,21 @@ from utils.categorizer import categorize_with_custom_categories
 
 
 class DuplicateInvoiceError(Exception):
-    """Raised when an invoice with the same invoice_number already exists.
+    """Raised only when a document is a strong duplicate of an existing row.
 
-    Duplicate invoice numbers are rejected outright — they are never saved
-    to the database, so they never show up in History.
+    Invoice number alone is intentionally insufficient: invoice numbering is
+    vendor-scoped, can be reused, and may be absent.
     """
 
-    def __init__(self, invoice_number: str, existing_id: int | None = None):
+    def __init__(self, invoice_number: str | None, existing_id: int | None = None, reason: str | None = None):
         self.invoice_number = invoice_number
         self.existing_id = existing_id
+        self.reason = reason or "matching vendor/document evidence"
+        label = invoice_number or "(not specified)"
         super().__init__(
-            f"Invoice number '{invoice_number}' already exists"
+            f"Invoice '{label}' matches an existing invoice"
             + (f" (invoice ID {existing_id})" if existing_id is not None else "")
+            + f": {self.reason}"
         )
 
 
@@ -90,26 +94,122 @@ class InvoiceRepository:
         return vendor
 
     def get_by_invoice_number(self, invoice_number: str) -> InvoiceORM | None:
+        """Return the first exact match for compatibility; numbers are no longer unique."""
         if not invoice_number:
             return None
         return (
             self.session.query(InvoiceORM)
             .filter(InvoiceORM.invoice_number == invoice_number)
+            .order_by(InvoiceORM.id.asc())
             .first()
         )
+
+    @staticmethod
+    def _norm_number(value) -> str:
+        return re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
+
+    @staticmethod
+    def _line_signature(items) -> tuple:
+        rows = []
+        for li in items or []:
+            desc = getattr(li, "description", None)
+            if desc is None and isinstance(li, dict):
+                desc = li.get("description")
+            desc = re.sub(r"[^A-Z0-9]+", " ", str(desc or "").upper()).strip()
+            if not desc:
+                continue
+            def _v(name, default=0.0):
+                value = getattr(li, name, None)
+                if value is None and isinstance(li, dict):
+                    value = li.get(name)
+                try:
+                    return round(float(value if value is not None else default), 2)
+                except Exception:
+                    return round(float(default), 2)
+            rows.append((desc, _v("quantity", 1.0), _v("unit_price"), _v("amount")))
+        return tuple(sorted(rows))
+
+    @staticmethod
+    def _payment_versions_differ(a, b) -> bool:
+        sa = str(getattr(a, "payment_status", None) or "unknown").lower()
+        sb = str(getattr(b, "payment_status", None) or "unknown").lower()
+        return {sa, sb} == {"paid", "unpaid"}
+
+    def _find_duplicate(self, invoice, vendor_id: int | None, exclude_id: int | None = None):
+        # Exact same source/page always wins, irrespective of later status edits.
+        fingerprint = getattr(invoice, "source_fingerprint", None)
+        if fingerprint:
+            q = self.session.query(InvoiceORM).filter(InvoiceORM.source_fingerprint == fingerprint)
+            if exclude_id is not None:
+                q = q.filter(InvoiceORM.id != exclude_id)
+            row = q.first()
+            if row:
+                return row, "same uploaded source/page fingerprint"
+
+        q = self.session.query(InvoiceORM)
+        if vendor_id is not None:
+            q = q.filter(InvoiceORM.vendor_id == vendor_id)
+        else:
+            q = q.filter(InvoiceORM.vendor_name == (getattr(invoice, "vendor_name", None) or ""))
+        if exclude_id is not None:
+            q = q.filter(InvoiceORM.id != exclude_id)
+
+        new_num = self._norm_number(getattr(invoice, "invoice_number", None))
+        new_date = getattr(invoice, "invoice_date", None)
+        new_total = getattr(invoice, "total_amount", None)
+        new_items = self._line_signature(getattr(invoice, "line_items", None))
+
+        for row in q.all():
+            # A paid copy and an unpaid copy can represent different lifecycle
+            # snapshots of the same business invoice and are both retained.
+            if self._payment_versions_differ(invoice, row):
+                continue
+
+            row_num = self._norm_number(row.invoice_number)
+            same_number = bool(new_num and row_num and new_num == row_num)
+            if bool(new_num) != bool(row_num):
+                same_number = False
+
+            same_date = bool(new_date is not None and row.invoice_date is not None and new_date == row.invoice_date)
+            same_total = False
+            if new_total is not None and row.total_amount is not None:
+                try:
+                    same_total = abs(float(new_total) - float(row.total_amount)) <= 0.01
+                except Exception:
+                    pass
+            row_items = self._line_signature(row.line_items)
+            same_items = bool(new_items and row_items and new_items == row_items)
+
+            # When both records contain item details, differing items are
+            # strong evidence that a vendor reused the same invoice number for
+            # a different transaction (QA explicitly exercises this case).
+            # Therefore item equality is mandatory in that situation.
+            if same_number:
+                if new_items and row_items:
+                    if same_items and (same_date or same_total):
+                        return row, "same vendor + invoice number with matching line items and transaction details"
+                elif same_date and same_total:
+                    return row, "same vendor + invoice number with matching date and total"
+            # Missing invoice numbers are allowed.  To avoid false positives,
+            # require all three remaining strong signals when neither row has one.
+            if not new_num and not row_num and same_date and same_total and same_items:
+                return row, "same vendor/date/total/line items with no invoice number"
+
+        return None, None
 
     def save(self, invoice: Invoice) -> InvoiceORM:
         invoice.vendor_name = (invoice.vendor_name or "Unknown Vendor").strip().upper()
         invoice.customer_name = (invoice.customer_name or "").strip().upper() or None
-        # Reject duplicate invoice numbers up front — a duplicate must never
-        # be persisted (and therefore never appears in History).
-        existing = self.get_by_invoice_number(invoice.invoice_number)
-        if existing:
-            raise DuplicateInvoiceError(invoice.invoice_number, existing.id)
+        invoice.invoice_number = str(invoice.invoice_number or "").strip() or None
+        invoice.payment_status = str(getattr(invoice, "payment_status", None) or "unknown").lower()
 
         vendor = self.get_or_create_vendor(
             invoice.vendor_name, invoice.vendor_address, invoice.vendor_tax_id
         )
+        existing, reason = self._find_duplicate(invoice, vendor.id)
+        if existing:
+            self.session.rollback()
+            raise DuplicateInvoiceError(invoice.invoice_number, existing.id, reason)
 
         orm_invoice = InvoiceORM(
             invoice_number=invoice.invoice_number,
@@ -137,8 +237,10 @@ class InvoiceRepository:
             previous_balance=invoice.previous_balance,
             currency=invoice.currency,
             payment_terms=invoice.payment_terms,
+            payment_status=invoice.payment_status,
             category=invoice.category,
             source_file=invoice.source_file,
+            source_fingerprint=invoice.source_fingerprint,
             enhanced_image_path=invoice.enhanced_image_path,
             original_filename=invoice.original_filename,
             ocr_engine_used=invoice.ocr_engine_used,
@@ -149,10 +251,8 @@ class InvoiceRepository:
         )
         orm_invoice.line_items = [
             LineItemORM(
-                description=li.description,
-                quantity=li.quantity,
-                unit_price=li.unit_price,
-                amount=li.amount,
+                description=li.description, quantity=li.quantity,
+                unit_price=li.unit_price, amount=li.amount,
             )
             for li in invoice.line_items
         ]
@@ -160,13 +260,9 @@ class InvoiceRepository:
         self.session.add(orm_invoice)
         try:
             self.session.commit()
-        except IntegrityError:
-            # Fallback in case two uploads with the same invoice number raced
-            # past the check above — the unique constraint on invoice_number
-            # is the last line of defense.
+        except IntegrityError as e:
             self.session.rollback()
-            existing = self.get_by_invoice_number(invoice.invoice_number)
-            raise DuplicateInvoiceError(invoice.invoice_number, existing.id if existing else None)
+            raise RuntimeError(f"Database integrity error while saving invoice: {e}") from e
         self.session.refresh(orm_invoice)
         return orm_invoice
 
@@ -194,12 +290,6 @@ class InvoiceRepository:
         if obj.locked:
             raise InvoiceLockedError(invoice_id)
 
-        new_number = data.get("invoice_number")
-        if new_number and new_number != obj.invoice_number:
-            existing = self.get_by_invoice_number(new_number)
-            if existing and existing.id != invoice_id:
-                raise DuplicateInvoiceError(new_number, existing.id)
-
         if "vendor_name" in data and data.get("vendor_name"):
             data["vendor_name"] = str(data["vendor_name"]).strip().upper()
             vendor = self.get_or_create_vendor(
@@ -210,6 +300,11 @@ class InvoiceRepository:
 
         if "customer_name" in data:
             data["customer_name"] = str(data.get("customer_name") or "").strip().upper() or None
+        if "invoice_number" in data:
+            data["invoice_number"] = str(data.get("invoice_number") or "").strip() or None
+        if "payment_status" in data:
+            payment = str(data.get("payment_status") or "unknown").lower()
+            data["payment_status"] = payment if payment in {"paid", "unpaid", "unknown"} else "unknown"
 
         editable_fields = [
             "invoice_number", "invoice_date", "due_date", "customer_name",
@@ -218,7 +313,7 @@ class InvoiceRepository:
             "subtotal", "tax_amount", "tax_rate", "discount", "withholding_tax",
             "zero_rated_sales", "vat_exempt_sales", "total_amount",
             "current_charges_total", "previous_balance",
-            "currency", "payment_terms", "status", "category",
+            "currency", "payment_terms", "payment_status", "status", "category", "source_file",
         ]
         for field in editable_fields:
             if field in data:
@@ -241,13 +336,17 @@ class InvoiceRepository:
                 for li in (data["line_items"] or [])
             ]
 
+        # Re-check using the full logical duplicate policy after manual edits.
+        existing, reason = self._find_duplicate(obj, obj.vendor_id, exclude_id=invoice_id)
+        if existing:
+            self.session.rollback()
+            raise DuplicateInvoiceError(obj.invoice_number, existing.id, reason)
+
         try:
             self.session.commit()
-        except IntegrityError:
+        except IntegrityError as e:
             self.session.rollback()
-            number = data.get("invoice_number") or obj.invoice_number
-            existing = self.get_by_invoice_number(number)
-            raise DuplicateInvoiceError(number, existing.id if existing else None)
+            raise RuntimeError(f"Database integrity error while updating invoice: {e}") from e
 
         self.session.refresh(obj)
         return obj

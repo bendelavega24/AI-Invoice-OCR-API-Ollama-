@@ -151,6 +151,8 @@ def isolate_party_addresses(data: dict) -> tuple[dict, list[str]]:
     return out, notes
 
 
+
+
 # ------------------------------------------------ 2) vendor master by TIN
 def apply_vendor_master(data: dict) -> tuple[dict, list[str]]:
     v = _find_vendor(data)

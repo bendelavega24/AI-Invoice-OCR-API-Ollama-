@@ -1,6 +1,6 @@
 """Cleans and normalizes raw LLM JSON before it's turned into an Invoice model."""
 import re
-import uuid
+from datetime import datetime
 from utils.date_utils import to_iso, parse_date, parse_date_with_context
 from utils.helpers import normalize_tin, is_valid_tin, TIN_RE
 from parser.currency_parser import normalize_currency, to_float, normalize_discount
@@ -295,7 +295,7 @@ def post_process(data: dict) -> dict:
     for text_field in (
         "vendor_name", "vendor_address", "vendor_tax_id",
         "customer_name", "customer_contact", "customer_address", "customer_tax_id",
-        "invoice_number",
+        "invoice_number", "payment_status",
     ):
         if data.get(text_field):
             data[text_field] = str(data[text_field]).strip()
@@ -2954,6 +2954,99 @@ def apply_identity_corrections_with_gate(
             corrections.pop(field, None)
     return out, corrections, locked, notes, accepted, rejected
 
+def infer_payment_status(data: dict, ocr_text: str) -> tuple[dict, list[str]]:
+    """Infer the current invoice's paid/unpaid state conservatively.
+
+    Payment status is deliberately separate from processing ``status``.  We
+    never mark a bill paid solely because text says "thank you for your
+    payment" (that frequently describes a prior billing period), and a
+    zero-charge bill is not automatically considered paid.
+    """
+    out = dict(data)
+    notes: list[str] = []
+    text = " ".join((ocr_text or "").split())
+    lower = text.lower()
+
+    raw_status = str(out.get("payment_status") or "").strip().lower()
+    status = raw_status if raw_status in {"paid", "unpaid", "unknown"} else "unknown"
+
+    def _amount_after(label_pattern: str):
+        m = re.search(label_pattern + r"\s*[:\-]?\s*(?:php|usd|eur|gbp|₱|\$)?\s*\(?([0-9][0-9,]*\.\d{1,3}|0(?:\.0+)?)\)?", lower, re.I)
+        if not m:
+            return None
+        try:
+            return float(m.group(1).replace(",", ""))
+        except Exception:
+            return None
+
+    amount_due = None
+    for pat in (r"total\s+amount\s+due", r"amount\s+due", r"balance\s+due", r"current\s+balance", r"please\s+pay"):
+        amount_due = _amount_after(pat)
+        if amount_due is not None:
+            break
+    amount_applied = None
+    for pat in (r"amount\s+applied", r"payment\s+applied", r"amount\s+paid"):
+        amount_applied = _amount_after(pat)
+        if amount_applied is not None:
+            break
+
+    explicit_paid = bool(re.search(r"\bpaid\s+in\s+full\b|\bfully\s+paid\b|\bpayment\s+received\b|\bstatus\s*[:\-]?\s*paid\b", lower))
+    explicit_unpaid = bool(re.search(r"\bunpaid\b|\boutstanding\s+(?:amount|balance)\b|\bstatus\s*[:\-]?\s*unpaid\b", lower))
+
+    inferred = "unknown"
+    if explicit_unpaid:
+        inferred = "unpaid"
+    elif amount_due is not None and amount_due > 0.005:
+        # A positive CURRENT amount due outranks generic payment wording.
+        # Statements often say prior charges "must be fully paid" or
+        # acknowledge "payments received" while a new balance is still due
+        # (QA INV-04).  Those phrases must never mark the current bill paid.
+        inferred = "unpaid"
+    elif explicit_paid:
+        inferred = "paid"
+    elif amount_due is not None and amount_due <= 0.005 and amount_applied is not None and amount_applied > 0.005:
+        inferred = "paid"
+
+    # OCR evidence wins over an unsupported LLM guess.  If OCR is inconclusive,
+    # retain a valid LLM status; otherwise use the deterministic inference.
+    if inferred != "unknown":
+        if status != inferred:
+            notes.append(f"Payment status reconciled to {inferred} from explicit current-bill payment evidence.")
+        status = inferred
+    elif status not in {"paid", "unpaid"}:
+        status = "unknown"
+
+    out["payment_status"] = status
+    return out, notes
+
+
+def has_transaction_evidence(invoice) -> bool:
+    """True when the page contains evidence of a completed/real transaction.
+
+    This distinguishes an incomplete but useful document (e.g. a delivery
+    receipt with handwritten items, or an explicit 0.00 billing invoice) from
+    an unused blank BIR form.  Missing invoice number/date/amount therefore do
+    not automatically make an upload fail.
+    """
+    if getattr(invoice, "line_items", None):
+        if any((getattr(li, "description", "") or "").strip() for li in invoice.line_items):
+            return True
+    total = getattr(invoice, "total_amount", None)
+    if total is not None and abs(float(total)) > 0.005:
+        return True
+    text = " ".join((getattr(invoice, "raw_text", None) or "").split()).lower()
+    # Explicit zero-value transaction/billing evidence is valid (INV-34 QA).
+    if re.search(r"(?:total\s+(?:current\s+bill\s+charges|amount\s+due|amount\s+sale)|amount\s+due|please\s+pay)\s*[:\-]?\s*(?:php|₱|\$)?\s*0(?:\.0+)?\b", text):
+        return True
+    # No numeric total and no extracted line item means there is no reliable
+    # completed-transaction evidence.  Printed form labels (Qty, Unit Price,
+    # Description, Total Due) plus a hallucinated date/customer are NOT enough:
+    # that exact combination caused the unused QA INV-36 BIR receipt booklet to
+    # be saved as a real invoice.  Genuine no-total documents such as INV-20
+    # still pass above because their filled handwritten rows become line_items.
+    return False
+
+
 def sanitize_for_model(data: dict) -> dict:
     """
     Fill in safe placeholders for fields the Invoice model requires as
@@ -2970,16 +3063,32 @@ def sanitize_for_model(data: dict) -> dict:
     """
     data = dict(data)
 
-    if not data.get("invoice_number"):
-        data["invoice_number"] = f"UNVERIFIED-{uuid.uuid4().hex[:8]}"
+    # Preserve genuinely missing invoice numbers/totals as null.  The old
+    # UNVERIFIED-<random> placeholder made a missing printed number look like
+    # real business data and broke duplicate detection.  Invoice now accepts
+    # both fields as optional, while validation (which runs before this helper)
+    # still flags them for review.
+    data["invoice_number"] = str(data.get("invoice_number") or "").strip() or None
     if not data.get("vendor_name"):
         data["vendor_name"] = "Unknown Vendor"
     if data.get("subtotal") is None:
         data["subtotal"] = 0.0
-    if data.get("total_amount") is None:
-        data["total_amount"] = 0.0
     if not data.get("currency"):
         data["currency"] = settings.DEFAULT_CURRENCY
+    # Keep malformed dates as reviewable missing values instead of letting
+    # Invoice(**data) abort the entire upload. validate_extraction() already
+    # recorded the exact defect before this sanitization step.
+    for date_field in ("invoice_date", "due_date"):
+        value = data.get(date_field)
+        if value:
+            try:
+                datetime.fromisoformat(str(value)).date()
+            except (TypeError, ValueError):
+                data[date_field] = None
+    if str(data.get("payment_status") or "").strip().lower() not in {"paid", "unpaid", "unknown"}:
+        data["payment_status"] = "unknown"
+    else:
+        data["payment_status"] = str(data.get("payment_status") or "unknown").strip().lower()
 
     return data
 

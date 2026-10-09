@@ -32,7 +32,7 @@ class InvoiceORM(Base):
     __tablename__ = "invoices"
 
     id = Column(Integer, primary_key=True)
-    invoice_number = Column(String, unique=True, index=True, nullable=False)
+    invoice_number = Column(String, index=True, nullable=True)
     invoice_date = Column(Date, nullable=True)
     date_uploaded = Column(Date, default=date.today, nullable=True)
     due_date = Column(Date, nullable=True)
@@ -64,14 +64,16 @@ class InvoiceORM(Base):
     # EXTRACTION_SCHEMA for what these represent.
     zero_rated_sales = Column(Float, nullable=True)
     vat_exempt_sales = Column(Float, nullable=True)
-    total_amount = Column(Float, default=0.0)
+    total_amount = Column(Float, nullable=True)
     current_charges_total = Column(Float, nullable=True)
     previous_balance = Column(Float, nullable=True)
     currency = Column(String, default="USD")
 
     payment_terms = Column(String, nullable=True)
+    payment_status = Column(String, default="unknown", nullable=False, index=True)
     category = Column(String, default="Others", nullable=False)
     source_file = Column(String, nullable=True)
+    source_fingerprint = Column(String, nullable=True, index=True)
     # See models/invoice.py::Invoice.enhanced_image_path — mirrors that
     # field so History can render a "cleaned-up" view alongside the
     # original. Nullable: PDFs and photos where no document edge was

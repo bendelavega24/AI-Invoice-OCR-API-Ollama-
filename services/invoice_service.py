@@ -9,7 +9,8 @@ from database.database import SessionLocal
 from database.repository import InvoiceRepository, DuplicateInvoiceError, InvoiceLockedError
 from database.models import InvoiceORM
 from parser.invoice_parser import parse_invoice_pages, InvoiceParsingError
-from utils.file_utils import move_to_processed, sanitize_filename_component
+from utils.file_utils import move_to_processed, sanitize_filename_component, file_hash
+from ai.post_processing import has_transaction_evidence
 from utils.categorizer import auto_categorize
 from services.audit_service import log_action
 
@@ -39,6 +40,7 @@ _AUDIT_FIELD_LABELS = {
     "previous_balance": "Previous Balance",
     "currency": "Currency",
     "payment_terms": "Payment Terms",
+    "payment_status": "Payment Status",
     "status": "Status",
     "category": "Category",
     "line_items": "Items Purchased / Line Items",
@@ -112,6 +114,19 @@ def _generate_enhanced_image(file_path: str, enabled: bool | None = None) -> str
         return None
 
 
+def _quality_warnings(invoice) -> list[str]:
+    warnings = []
+    if not getattr(invoice, "invoice_number", None):
+        warnings.append("Invoice number is not specified on the document.")
+    if not getattr(invoice, "invoice_date", None):
+        warnings.append("Invoice/transaction date is not specified on the document.")
+    if getattr(invoice, "total_amount", None) is None:
+        warnings.append("No total amount is stated/extracted; verify the amount with the vendor before payment.")
+    if (getattr(invoice, "vendor_name", None) or "").strip().upper() == "UNKNOWN VENDOR":
+        warnings.append("Vendor name is not specified or could not be verified.")
+    return warnings
+
+
 @vision_scope
 def process_invoice_file(
     file_path: str,
@@ -159,6 +174,10 @@ def process_invoice_file(
     enhanced_image_path = _generate_enhanced_image(file_path, enabled=enhance_image)
 
     results = []
+    try:
+        source_hash = file_hash(file_path)
+    except Exception:
+        source_hash = None
     session = SessionLocal()
     try:
         repo = InvoiceRepository(session)
@@ -170,6 +189,25 @@ def process_invoice_file(
             invoice.customer_name = (invoice.customer_name or "").strip().upper() or None
             invoice.category = auto_categorize(invoice.vendor_name, invoice.line_items)
             invoice.enhanced_image_path = enhanced_image_path
+            invoice.source_fingerprint = f"{source_hash}:page:{i}" if source_hash else None
+            quality_warnings = _quality_warnings(invoice)
+
+            # An incomplete but real transaction is saved as needs_review.
+            # A blank/uncompleted form (QA INV-36) is not a transaction and
+            # must not enter History merely because it has printed boilerplate.
+            if not has_transaction_evidence(invoice):
+                results.append({
+                    "success": False,
+                    "invoice_number": invoice.invoice_number,
+                    "file": invoice.original_filename,
+                    "error": (
+                        "The document does not contain enough completed transaction evidence "
+                        "(items, amount, or filled transaction details). It appears to be a blank "
+                        "or uncompleted form and was not added to History."
+                    ),
+                    "quality_warnings": quality_warnings,
+                })
+                continue
 
             try:
                 orm_invoice = repo.save(invoice)
@@ -186,9 +224,8 @@ def process_invoice_file(
                     "invoice_number": invoice.invoice_number,
                     "existing_invoice_id": e.existing_id,
                     "error": (
-                        f"Duplicate invoice number '{invoice.invoice_number}' — "
-                        f"already exists as invoice #{e.existing_id}. Skipped; "
-                        "not added to History."
+                        f"Duplicate invoice detected — it matches invoice #{e.existing_id} "
+                        f"({e.reason}). Skipped; not added to History."
                     ),
                     "file": invoice.original_filename,
                 })
@@ -217,6 +254,8 @@ def process_invoice_file(
                 "current_charges_total": invoice.current_charges_total,
                 "previous_balance": invoice.previous_balance,
                 "currency": invoice.currency,
+                "payment_status": invoice.payment_status,
+                "quality_warnings": quality_warnings,
                 "category": invoice.category,
                 "confidence_score": invoice.confidence_score,
                 "status": invoice.status,
@@ -486,6 +525,7 @@ def _orm_to_dict(row) -> dict:
         "plate_number": row.plate_number,
         "original_filename": row.original_filename,
         "source_file": row.source_file,
+        "source_fingerprint": row.source_fingerprint,
         "enhanced_image_path": row.enhanced_image_path,
         "category": row.category,
         "created_at": row.created_at.isoformat() if row.created_at else None,
@@ -502,6 +542,7 @@ def _orm_to_dict(row) -> dict:
         "previous_balance": row.previous_balance,
         "currency": row.currency,
         "payment_terms": row.payment_terms,
+        "payment_status": row.payment_status or "unknown",
         "status": row.status,
         "locked": row.locked,
         "confidence_score": row.confidence_score,

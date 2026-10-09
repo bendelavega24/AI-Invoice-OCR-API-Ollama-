@@ -1,6 +1,6 @@
 """Validates the JSON returned by the LLM before it becomes an Invoice model."""
 import re
-from datetime import datetime
+from datetime import datetime, date
 from config.constants import REQUIRED_FIELDS
 
 _NET_TERMS_RE = re.compile(r"net\s*[:\-]?\s*(\d{1,3})\b", re.IGNORECASE)
@@ -127,15 +127,40 @@ def validate_extraction(
         if field not in data or data[field] in (None, "", []):
             issues.append(f"Missing required field: '{field}'")
 
+    # Dates that are absent are review issues through REQUIRED_FIELDS (for
+    # invoice_date) but are still saveable. Malformed/future transaction dates
+    # must likewise force review rather than crashing Pydantic later.
+    parsed_dates = {}
+    for field in ("invoice_date", "due_date"):
+        value = data.get(field)
+        if not value:
+            continue
+        try:
+            parsed_dates[field] = datetime.fromisoformat(str(value)).date()
+        except (TypeError, ValueError):
+            issues.append(f"{field} '{value}' is not a valid calendar date")
+    if parsed_dates.get("invoice_date") and parsed_dates["invoice_date"] > date.today():
+        issues.append(f"invoice_date {parsed_dates['invoice_date'].isoformat()} is in the future")
+
     total = data.get("total_amount")
     total_f = None
     if total is not None:
         try:
             total_f = float(total)
-            if total_f <= 0:
-                issues.append("total_amount must be greater than 0")
+            if total_f < 0:
+                issues.append("total_amount cannot be negative")
         except (TypeError, ValueError):
             issues.append("total_amount is not numeric")
+
+    if total_f is not None and data.get("tax_amount") is not None:
+        try:
+            tax_f = float(data.get("tax_amount"))
+            if tax_f < 0:
+                issues.append("tax_amount cannot be negative")
+            if total_f >= 0 and tax_f > total_f + 0.01:
+                issues.append(f"tax_amount ({tax_f:.2f}) cannot exceed total_amount ({total_f:.2f})")
+        except (TypeError, ValueError):
+            issues.append("tax_amount is not numeric")
 
     # Anti-hallucination check: the printed total is a real number sitting
     # somewhere on the page, so a correctly-read total_amount should appear
@@ -310,6 +335,15 @@ def validate_extraction(
             desc = str((li or {}).get("description") or "").strip()
             if not desc:
                 continue
+            for amount_field in ("quantity", "unit_price", "amount"):
+                value = (li or {}).get(amount_field)
+                if value is None:
+                    continue
+                try:
+                    if float(value) < 0:
+                        issues.append(f"line item '{desc}' has negative {amount_field}: {value}")
+                except (TypeError, ValueError):
+                    issues.append(f"line item '{desc}' has non-numeric {amount_field}: {value}")
             if _BARE_NUMBER_DESCRIPTION_RE.match(desc):
                 issues.append(
                     f"line item description '{desc}' is just a number/code, not a product "

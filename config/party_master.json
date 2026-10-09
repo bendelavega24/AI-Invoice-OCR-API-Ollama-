@@ -1,5 +1,5 @@
 {
-  "_readme": "Master data for recurring parties. Vendors are matched by VAT Reg. TIN (digits only, first 9 digits); the master vendor_address is the exact printed header address and replaces whatever OCR/LLM produced. Customers are matched by TIN or name key; address_variants are the exact address spellings printed on each invoice layout and are used to repair OCR typos and vendor/customer address bleed. Add new lines here - no code change needed.",
+  "_readme": "Master data for recurring parties. Vendors are matched by VAT Reg. TIN (digits only, first 9 digits); the master vendor_address is the exact printed header address and replaces whatever OCR/LLM produced. Customers are matched by TIN or name key; address_variants are the exact address spellings printed on each invoice layout and are used to repair OCR typos and vendor/customer address bleed. Add new lines here - no code change needed. Customers may also have a canonical 'name': once the customer is identified by TIN or name key, customer_name is set to it (fixes handwritten names that OCR garbles).",
   "vendors": [
     {
       "tin": "000-360-916-00000",
@@ -25,13 +25,17 @@
   "customers": [
     {
       "tin": "007-848-122-000",
-      "name_keys": ["tsukiden"],
+      "name_keys": [
+        "tsukiden"
+      ],
       "address_variants": [
         "U 2102 21/F One Corporate Ctr Condo, J Vargas cor Meralco Ave, Brgy San Antonio, Ortigas Center, Pasig City 1605",
         "2101 One Corporate Center Julia Vargas Cor Meralco Ave Ortigas Center, Ortigas,Pasig, Metro Manila,1605",
         "21st Floor One Corporate Center, Julia Vargas Corner Meralco Ave., Ortigas Center, Pasig City",
-        "Unit 2102, 21st Floor, One Corporate Centre, Dona Julia Vargas Avenue corner Meralco Ave. Ortigas"
-      ]
+        "Unit 2102, 21st Floor, One Corporate Centre, Dona Julia Vargas Avenue corner Meralco Ave. Ortigas",
+        "2102 One Corporate Center, J. Vargas Cor. Meralco Ave., Ortigas Center, Pasig City"
+      ],
+      "name": "TSUKIDEN GLOBAL SOLUTIONS, INC."
     }
   ]
 }

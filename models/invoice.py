@@ -24,7 +24,7 @@ class LineItem(BaseModel):
 
 class Invoice(BaseModel):
     id: Optional[int] = None
-    invoice_number: str
+    invoice_number: Optional[str] = None
     invoice_date: Optional[date] = None
     # Date the source invoice was uploaded/processed into this system; independent of invoice_date.
     date_uploaded: Optional[date] = None
@@ -50,16 +50,18 @@ class Invoice(BaseModel):
     withholding_tax: Optional[float] = None
     zero_rated_sales: Optional[float] = None
     vat_exempt_sales: Optional[float] = None
-    total_amount: float = 0.0
+    total_amount: Optional[float] = None
     # 1.55: billing statements can carry an old balance in addition to current charges.
     current_charges_total: Optional[float] = None
     previous_balance: Optional[float] = None
     currency: str = "USD"
 
     payment_terms: Optional[str] = None
+    payment_status: str = "unknown"
     category: str = "Others"
 
     source_file: Optional[str] = None
+    source_fingerprint: Optional[str] = None
     # Path to the auto-cropped/perspective-corrected/contrast-enhanced
     # version of source_file (see ocr/preprocessing.py::camscan()). None
     # when the source is a PDF (camscan works on photos, not paginated
@@ -83,6 +85,8 @@ class Invoice(BaseModel):
         """Sanity check: subtotal + tax - discount ≈ total."""
         computed = self.subtotal + (self.tax_amount or 0) + (self.zero_rated_sales or 0) + (self.vat_exempt_sales or 0) - (self.discount or 0) - (self.withholding_tax or 0)
         target = self.current_charges_total if self.current_charges_total is not None else self.total_amount
-        if target == 0:
+        if target is None:
             return False
-        return abs(computed - target) <= tolerance * target
+        if target == 0:
+            return abs(computed) <= 0.01
+        return abs(computed - target) <= tolerance * abs(target)

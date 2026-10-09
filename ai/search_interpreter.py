@@ -42,6 +42,7 @@ _INVOICE_PRESENCE_ALIASES = {
     "source_file": ["source file"],
     "enhanced_image_path": ["enhanced image", "cleaned image"],
     "payment_terms": ["payment terms", "payment term"],
+    "payment_status": ["payment status", "paid", "unpaid", "not paid"],
     "ocr_engine_used": ["ocr engine"],
     "raw_text": ["raw ocr text", "ocr text"],
     "vision_notes": ["vision notes", "vision note"],
@@ -132,6 +133,7 @@ Text fields:
 - source_file = stored source-file path/name
 - enhanced_image_path = enhanced/cropped invoice image
 - payment_terms = payment terms
+- payment_status = paid/unpaid/unknown status of the current invoice
 - ocr_engine_used = OCR engine
 - raw_text = stored raw OCR text
 - vision_notes = vision verification notes

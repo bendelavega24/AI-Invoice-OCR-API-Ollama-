@@ -1,0 +1,7 @@
+﻿Test Case ID,Workflow Stage,Test Type,Test Case Name,Precondition,Test Steps,Expected Result,Actual Result,Status (Pass/Fail),Remarks
+TC001,Upload Invoice,Functional,Upload Valid PDF Invoice,User is on the Upload Invoice page.,"1. Click Upload Invoice.
+2. Select a valid PDF invoice.
+3. Click Upload.",Invoice is accepted and processing begins.,Invoice was accepted for upload.,Fail,Invoice was accepted but major information was not extracted correctly.
+TC002,Upload Invoice,Functional,Upload Valid PNG Invoice,User is on the Upload Invoice page.,"1. Click Upload Invoice.
+2. Select a valid PNG invoice.
+3. Click Upload.",Invoice is accepted and processing begins.,Invoice was accepted for upload.,Fail,Invoice was accepted but major information was not extracted correctly.

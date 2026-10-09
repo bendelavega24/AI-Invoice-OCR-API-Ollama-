@@ -125,3 +125,11 @@ Upload now supports direct flatbed scanning through free NAPS2 on Windows. Log d
 ## CPU speed and verification reliability
 
 See [CPU_SPEED_UPDATE.md](CPU_SPEED_UPDATE.md) for the batch vision-timeout guard, earlier cleanup before text correction, review warnings, and new timing fields. Both improvements are enabled by default without changing your existing .env.
+
+## QA invoice handling and duplicate policy
+
+This build accepts real transaction documents even when some invoice fields are missing, but saves them for review rather than inventing values. Missing invoice number, invoice date, or total amount can therefore be stored as blank when other transaction evidence exists. An explicit zero-charge invoice is also valid input; a blank/unused invoice or receipt form with no transaction evidence is rejected.
+
+Payment state is stored separately from processing state as **Paid**, **Unpaid**, or **Unknown**. Duplicate detection no longer treats the invoice number as globally unique. It considers vendor identity, invoice number when present, date/amount, line-item signature, source/page fingerprint, and payment state. This allows the same invoice number from different vendors and reused handwritten numbers with different purchased items, while still blocking the same logical invoice uploaded again in another image format. Paid and unpaid lifecycle copies may coexist.
+
+See `docs/qa_invoice_rules.md` for the detailed rules and QA examples.

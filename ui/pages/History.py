@@ -1,5 +1,6 @@
 """Streamlit page: browse, search, and drill into processed invoices."""
 import sys
+import re
 from datetime import date
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
@@ -7,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
-from config.constants import CATEGORY_OPTIONS
+from config.constants import CATEGORY_OPTIONS, PAYMENT_STATUS_OPTIONS
 from database.repository import DuplicateInvoiceError, InvoiceLockedError
 from services.invoice_service import (
     list_invoices, get_invoice, update_invoice, lock_invoice, unlock_invoice, delete_invoice,
@@ -34,9 +35,9 @@ STATUS_OPTIONS = ["processed", "needs_review"]
 # ID column width is left untouched; the action-button columns are sized
 # tight to their icon-only buttons, and the freed-up space is redistributed
 # across the remaining data columns.
-ROW_WIDTHS = [0.4, 0.5, 1.2, 1.5, 1.0, 1.0, 1.25, 1.15, 1.0, 0.5, 0.5, 0.5]
+ROW_WIDTHS = [0.4, 0.5, 1.2, 1.5, 1.0, 1.0, 1.25, 1.05, 0.9, 0.9, 0.5, 0.5, 0.5]
 COLUMN_LABELS = [
-    "", "ID", "Invoice #", "Vendor", "Invoice Date", "Date Uploaded", "Total Amount Due", "Category", "Status", "", "", "",
+    "", "ID", "Invoice #", "Vendor", "Invoice Date", "Date Uploaded", "Total Amount Due", "Category", "Payment", "Status", "", "", "",
 ]
 
 
@@ -49,32 +50,46 @@ def _show_image(source):
         st.image(source, use_column_width=True)
 
 
-def _render_invoice_image(inv: dict) -> None:
-    """Resolves and displays the source file for `inv` — first page only
-    for PDFs. Shared by the invoice detail viewer and the Edit Invoice
-    dialog, so a user can see the original document while correcting the
-    extracted fields next to it.
+def _preferred_pdf_page_index(inv: dict, total_pages: int) -> int:
+    """Best-effort page to show first for a PDF-backed invoice record.
 
-    When an enhanced (auto-cropped/straightened) version exists — see
-    services/invoice_service.py::_generate_enhanced_image() — offers a
-    toggle so the person can compare it against the original photo,
-    CamScanner-style. Defaults to showing the enhanced version when one
-    exists, since that's usually the more useful/readable view; falls
-    back to the original silently if the enhanced file has since gone
-    missing from disk.
+    Multi-invoice PDFs are saved as one intact source PDF.  When processing
+    produced one invoice per page, ``original_filename`` carries a
+    ``(page N/M)`` suffix.  Use that as the initial page while still letting
+    the user inspect every page in History.
+    """
+    label = str(inv.get("original_filename") or "")
+    match = re.search(r"\(page\s+(\d+)\s*/\s*(\d+)\)\s*$", label, re.IGNORECASE)
+    if not match:
+        return 0
+    try:
+        page = int(match.group(1)) - 1
+    except (TypeError, ValueError):
+        return 0
+    return max(0, min(page, max(0, total_pages - 1)))
+
+
+def _render_invoice_image(inv: dict, widget_scope: str = "detail") -> None:
+    """Resolve and display the saved source document for ``inv``.
+
+    PDFs are archived intact.  History used to render only ``pages[0]``,
+    which made secondary pages look as if they had not been saved.  A page
+    radio now exposes every stored PDF page and initially selects the page
+    associated with a per-page invoice record when that information exists.
+
+    When an enhanced (auto-cropped/straightened) image exists, the user can
+    still compare it with the original photo.
     """
     resolved_enhanced = resolve_source_file(inv.get("enhanced_image_path"))
     resolved_original = resolve_source_file(inv.get("source_file"))
 
     resolved_file = resolved_original
     if resolved_enhanced:
-        # Keyed by invoice id so each invoice's toggle is independent and
-        # doesn't leak its state onto a different invoice's widget.
         choice = st.radio(
             "View",
             ["Enhanced (auto-cropped)", "Original"],
             horizontal=True,
-            key=f"img_view_choice_{inv.get('id')}",
+            key=f"img_view_choice_{widget_scope}_{inv.get('id')}",
             label_visibility="collapsed",
         )
         if choice == "Enhanced (auto-cropped)":
@@ -83,16 +98,30 @@ def _render_invoice_image(inv: dict) -> None:
     if not resolved_file:
         st.caption("(no image on disk for this invoice)")
         return
+
     if resolved_file.suffix.lower() == ".pdf":
         try:
             pages = pdf_to_images(str(resolved_file))
         except Exception as e:
             st.caption(f"(couldn't render PDF preview: {e})")
             return
-        if pages:
-            _show_image(pages[0])
-            if len(pages) > 1:
-                st.caption(f"Showing page 1 of {len(pages)}.")
+        if not pages:
+            st.caption("(PDF contains no renderable pages)")
+            return
+
+        page_index = 0
+        if len(pages) > 1:
+            preferred = _preferred_pdf_page_index(inv, len(pages))
+            page_index = st.radio(
+                "PDF page",
+                list(range(len(pages))),
+                index=preferred,
+                format_func=lambda i: f"Page {i + 1} of {len(pages)}",
+                horizontal=True,
+                key=f"pdf_page_choice_{widget_scope}_{inv.get('id')}",
+            )
+            st.caption(f"The stored source PDF contains all {len(pages)} pages.")
+        _show_image(pages[page_index])
     else:
         _show_image(str(resolved_file))
 
@@ -238,6 +267,13 @@ def render_edit_form(inv: dict):
             total_amount = st.number_input(
                 "Total Amount Due", value=float(inv.get("total_amount") or 0.0), step=0.01, format="%.2f"
             )
+            payment_status = st.selectbox(
+                "Payment Status",
+                PAYMENT_STATUS_OPTIONS,
+                index=PAYMENT_STATUS_OPTIONS.index(inv.get("payment_status") or "unknown")
+                if (inv.get("payment_status") or "unknown") in PAYMENT_STATUS_OPTIONS else 0,
+                help="Separate from processing Status. Use Unknown when the document does not prove paid/unpaid state.",
+            )
             status = st.selectbox(
                 "Status",
                 STATUS_OPTIONS,
@@ -359,9 +395,6 @@ def render_edit_form(inv: dict):
 
         c_save, c_cancel = st.columns(2)
         if c_save.button("💾 Save changes", type="primary", use_container_width=True):
-            if not invoice_number.strip():
-                st.error("Invoice # can't be empty.")
-                return
             if not vendor_name.strip():
                 st.error("Vendor can't be empty.")
                 return
@@ -384,7 +417,7 @@ def render_edit_form(inv: dict):
                 })
 
             updates = {
-                "invoice_number": invoice_number.strip(),
+                "invoice_number": invoice_number.strip() or None,
                 "vendor_name": vendor_name.strip().upper(),
                 "vendor_address": vendor_address.strip() or None,
                 "vendor_tax_id": vendor_tax_id.strip() or None,
@@ -402,6 +435,7 @@ def render_edit_form(inv: dict):
                 "zero_rated_sales": _preserve_optional_numeric(inv.get("zero_rated_sales"), zero_rated_sales),
                 "vat_exempt_sales": _preserve_optional_numeric(inv.get("vat_exempt_sales"), vat_exempt_sales),
                 "total_amount": _preserve_optional_numeric(inv.get("total_amount"), total_amount),
+                "payment_status": payment_status,
                 "status": "processed",
                 "category": category,
                 "line_items": new_line_items,
@@ -425,7 +459,7 @@ def render_edit_form(inv: dict):
 
     with image_col:
         st.markdown("**🖼️ Invoice Image**")
-        _render_invoice_image(inv)
+        _render_invoice_image(inv, widget_scope="edit")
 
 
 @st.dialog("🗑️ Delete Invoice")
@@ -525,13 +559,14 @@ def render_invoice_row_table(invoices: list[dict], key_prefix: str, scope_key: s
         row_cols[5].write(inv.get("date_uploaded") or (inv.get("created_at") or "")[:10] or "-")
         row_cols[6].write(f"{(inv.get('total_amount') or 0):,.2f} {inv.get('currency') or ''}".strip())
         row_cols[7].write(inv.get("category") or "Others")
-        row_cols[8].write(inv.get("status") or "-")
-        row_cols[9].button(
+        row_cols[8].write((inv.get("payment_status") or "unknown").title())
+        row_cols[9].write(inv.get("status") or "-")
+        row_cols[10].button(
             "✏️", key=f"edit_btn_{key_prefix}_{inv['id']}", disabled=locked, help="Edit",
             on_click=_request_detail_switch, args=(inv["id"],), kwargs={"enter_edit": True},
         )
         lock_icon = "🔓" if locked else "🔒"
-        if row_cols[10].button(
+        if row_cols[11].button(
             lock_icon, key=f"lock_btn_{key_prefix}_{inv['id']}",
             help="Unlock" if locked else "Lock (confirm this row is correct)",
         ):
@@ -542,7 +577,7 @@ def render_invoice_row_table(invoices: list[dict], key_prefix: str, scope_key: s
             if scope_key != "current":
                 st.session_state["scroll_to_prev_month"] = True
             st.rerun()
-        if row_cols[11].button(
+        if row_cols[12].button(
             "🗑️", key=f"delete_btn_{key_prefix}_{inv['id']}",
             disabled=locked, help="Unlock first to delete" if locked else "Delete",
         ):
@@ -630,21 +665,24 @@ def render_filters(scope_key: str, invoices_pool: list[dict]) -> list[dict]:
     )
     invoice_month_labels = {_month_label(k): k for k in invoice_month_keys}
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     statuses = c1.multiselect("Filter by status", STATUS_OPTIONS, key=f"status_filter_{scope_key}")
-    invoice_months = c2.multiselect(
+    payment_statuses = c2.multiselect("Filter by payment", PAYMENT_STATUS_OPTIONS, key=f"payment_filter_{scope_key}")
+    invoice_months = c3.multiselect(
         "Filter by month(Invoice Date)",
         list(invoice_month_labels.keys()),
         key=f"invoice_month_filter_{scope_key}",
     )
-    categories = c3.multiselect(
+    categories = c4.multiselect(
         "Filter by category", all_categories, key=f"category_filter_{scope_key}"
     )
-    vendor_sel = c4.multiselect("Filter by vendor", vendors, key=f"vendor_filter_{scope_key}")
+    vendor_sel = c5.multiselect("Filter by vendor", vendors, key=f"vendor_filter_{scope_key}")
 
     filtered = invoices_pool
     if statuses:
         filtered = [inv for inv in filtered if inv.get("status") in statuses]
+    if payment_statuses:
+        filtered = [inv for inv in filtered if (inv.get("payment_status") or "unknown") in payment_statuses]
     if invoice_months:
         chosen_invoice_months = {invoice_month_labels[label] for label in invoice_months}
         filtered = [inv for inv in filtered if _invoice_month_key(inv) in chosen_invoice_months]
@@ -782,9 +820,22 @@ if invoices:
             c2.write(f"**Zero-Rated Sales:** {(detail.get('zero_rated_sales') or 0):,.2f} {detail.get('currency')}")
             c2.write(f"**VAT:** {(detail.get('tax_amount') or 0):,.2f} {detail.get('currency')}")
             c2.write(f"**Withholding Tax:** {(detail.get('withholding_tax') or 0):,.2f} {detail.get('currency')}")
-            c2.write(f"**Total Amount Due:** {(detail.get('total_amount') or 0):,.2f} {detail.get('currency')}")
+            _total = detail.get("total_amount")
+            _total_display = f"{_total:,.2f} {detail.get('currency')}" if _total is not None else "— (not specified/extracted)"
+            c2.write(f"**Total Amount Due:** {_total_display}")
+            c2.write(f"**Payment Status:** {(detail.get('payment_status') or 'unknown').title()}")
             c2.write(f"**Status:** {detail.get('status')}")
             c2.write(f"**Locked:** {'🔒 Yes' if detail.get('locked') else '🔓 No'}")
+
+            quality_warnings = []
+            if not detail.get("invoice_number"):
+                quality_warnings.append("Invoice number is not specified on the document.")
+            if not detail.get("invoice_date"):
+                quality_warnings.append("Invoice/transaction date is not specified on the document.")
+            if detail.get("total_amount") is None:
+                quality_warnings.append("No total amount is stated/extracted; verify with the vendor before payment.")
+            if quality_warnings:
+                st.warning("Review required:\n\n" + "\n".join(f"• {w}" for w in quality_warnings))
 
             line_items = detail.get("line_items") or []
             if line_items:
@@ -829,7 +880,7 @@ if invoices:
                            + "\n".join(f"- {line}" for line in detail["vision_notes"].split("\n")))
 
             with st.expander("🖼️ Invoice image"):
-                _render_invoice_image(detail)
+                _render_invoice_image(detail, widget_scope="detail")
 
 
     _scroll_to_if_flagged("scroll_to_detail", "invoice-detail-anchor")

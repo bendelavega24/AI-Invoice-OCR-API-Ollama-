@@ -95,7 +95,7 @@ def test_missing_key_fails_clearly(openrouter, monkeypatch):
     monkeypatch.setattr(settings, "OPENROUTER_API_KEY", "")
     with pytest.raises(extractor.ExtractionError) as e:
         extractor._call_ollama("x", {})
-    assert "OPENROUTER_API_KEY" in str(e.value)
+    assert "LLM_API_KEY" in str(e.value)
 
 
 def test_timeout_is_reported(openrouter, monkeypatch):

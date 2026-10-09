@@ -54,6 +54,8 @@ def _ensure_new_columns():
             # safety net so a legacy DB gets the column added on next app
             # startup, same as the others above.
             ("raw_text", "TEXT"),
+            ("payment_status", "TEXT NOT NULL DEFAULT 'unknown'"),
+            ("source_fingerprint", "TEXT"),
         ],
     }
     with engine.connect() as conn:
@@ -72,6 +74,89 @@ def _ensure_new_columns():
         conn.exec_driver_sql("UPDATE vendors SET name = UPPER(TRIM(name)) WHERE name IS NOT NULL")
         _repair_v167_zero_to_null_edit_bug(conn)
         conn.commit()
+
+    _relax_invoice_number_constraint_if_needed()
+
+
+def _relax_invoice_number_constraint_if_needed():
+    """Migrate legacy SQLite DBs where invoice_number was NOT NULL + UNIQUE.
+
+    Invoice numbers are vendor-scoped business references, not global record
+    identifiers.  QA includes the same number from different vendors, and some
+    legitimate/supplementary documents omit the number entirely.  SQLite cannot
+    DROP a UNIQUE/NOT NULL constraint in-place, so rebuild only this table while
+    preserving IDs and all columns.
+    """
+    if not settings.DATABASE_URL.startswith("sqlite"):
+        return
+
+    raw = engine.raw_connection()
+    try:
+        cur = raw.cursor()
+        info = cur.execute("PRAGMA table_info(invoices)").fetchall()
+        if not info:
+            return
+        inv_col = next((row for row in info if row[1] == "invoice_number"), None)
+        unique_indexes = cur.execute("PRAGMA index_list(invoices)").fetchall()
+        has_unique = any(bool(row[2]) for row in unique_indexes)
+        needs_rebuild = bool(inv_col and inv_col[3]) or has_unique
+        if not needs_rebuild:
+            return
+
+        logger.info("Migrating invoices table: invoice_number becomes nullable and non-unique")
+        cur.execute("PRAGMA foreign_keys=OFF")
+        cur.execute("BEGIN")
+        try:
+            # Keep this explicit so the migration is deterministic and does not
+            # depend on SQLite's ALTER TABLE constraint limitations.
+            cur.execute("""
+                CREATE TABLE invoices_new (
+                    id INTEGER NOT NULL PRIMARY KEY,
+                    invoice_number VARCHAR, invoice_date DATE, date_uploaded DATE, due_date DATE,
+                    vendor_id INTEGER REFERENCES vendors(id), vendor_name VARCHAR NOT NULL,
+                    vendor_address VARCHAR, vendor_tax_id VARCHAR,
+                    customer_name VARCHAR, customer_contact VARCHAR, customer_address VARCHAR, customer_tax_id VARCHAR,
+                    plate_number VARCHAR, subtotal FLOAT, tax_amount FLOAT, tax_rate FLOAT, discount FLOAT,
+                    withholding_tax FLOAT, zero_rated_sales FLOAT, vat_exempt_sales FLOAT, total_amount FLOAT,
+                    current_charges_total FLOAT, previous_balance FLOAT, currency VARCHAR,
+                    payment_terms VARCHAR, payment_status VARCHAR NOT NULL DEFAULT 'unknown', category VARCHAR NOT NULL DEFAULT 'Others',
+                    source_file VARCHAR, source_fingerprint VARCHAR, enhanced_image_path VARCHAR, original_filename VARCHAR,
+                    ocr_engine_used VARCHAR, confidence_score FLOAT, status VARCHAR, raw_text TEXT, vision_notes TEXT,
+                    locked BOOLEAN NOT NULL DEFAULT 0, created_at DATETIME
+                )
+            """)
+            old_cols = {row[1] for row in info}
+            target_cols = [
+                "id", "invoice_number", "invoice_date", "date_uploaded", "due_date", "vendor_id", "vendor_name",
+                "vendor_address", "vendor_tax_id", "customer_name", "customer_contact", "customer_address", "customer_tax_id",
+                "plate_number", "subtotal", "tax_amount", "tax_rate", "discount", "withholding_tax", "zero_rated_sales",
+                "vat_exempt_sales", "total_amount", "current_charges_total", "previous_balance", "currency", "payment_terms",
+                "payment_status", "category", "source_file", "source_fingerprint", "enhanced_image_path", "original_filename",
+                "ocr_engine_used", "confidence_score", "status", "raw_text", "vision_notes", "locked", "created_at",
+            ]
+            common = [c for c in target_cols if c in old_cols]
+            cols = ", ".join(common)
+            select_expr = {
+                "vendor_name": "COALESCE(vendor_name, 'UNKNOWN VENDOR')",
+                "category": "COALESCE(category, 'Others')",
+                "payment_status": "COALESCE(payment_status, 'unknown')",
+                "locked": "COALESCE(locked, 0)",
+            }
+            selected = ", ".join(select_expr.get(c, c) for c in common)
+            cur.execute(f"INSERT INTO invoices_new ({cols}) SELECT {selected} FROM invoices")
+            cur.execute("DROP TABLE invoices")
+            cur.execute("ALTER TABLE invoices_new RENAME TO invoices")
+            cur.execute("CREATE INDEX IF NOT EXISTS ix_invoices_invoice_number ON invoices (invoice_number)")
+            cur.execute("CREATE INDEX IF NOT EXISTS ix_invoices_payment_status ON invoices (payment_status)")
+            cur.execute("CREATE INDEX IF NOT EXISTS ix_invoices_source_fingerprint ON invoices (source_fingerprint)")
+            cur.execute("COMMIT")
+        except Exception:
+            cur.execute("ROLLBACK")
+            raise
+        finally:
+            cur.execute("PRAGMA foreign_keys=ON")
+    finally:
+        raw.close()
 
 
 def _repair_v167_zero_to_null_edit_bug(conn):

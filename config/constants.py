@@ -15,6 +15,11 @@ INVOICE_STATUS_PROCESSED = "processed"
 INVOICE_STATUS_REVIEW = "needs_review"
 INVOICE_STATUS_FAILED = "failed"
 
+PAYMENT_STATUS_UNKNOWN = "unknown"
+PAYMENT_STATUS_UNPAID = "unpaid"
+PAYMENT_STATUS_PAID = "paid"
+PAYMENT_STATUS_OPTIONS = [PAYMENT_STATUS_UNKNOWN, PAYMENT_STATUS_UNPAID, PAYMENT_STATUS_PAID]
+
 CURRENCY_SYMBOLS = {
     "$": "USD", "â‚¬": "EUR", "Â£": "GBP", "Â¥": "JPY",
     "â‚±": "PHP", "â‚¹": "INR", "â‚©": "KRW",
@@ -147,12 +152,13 @@ EXTRACTION_SCHEMA = {
         "number â€” the Total Amount Due: the final amount owed/payable for "
         "this transaction, i.e. the Net Amount plus VAT and any other "
         "applicable charges (also known as 'Gross Total'). Look for labels "
-        "like TOTAL, AMOUNT DUE, AMOUNT PAYABLE, or GRAND TOTAL. Do NOT use "
+        "like TOTAL, AMOUNT DUE, AMOUNT PAYABLE, PLEASE PAY, or GRAND TOTAL. Do NOT use "
         "CASH/TENDERED (money handed over by the customer) or CHANGE (money "
         "handed back) â€” those are payment mechanics, not the total."
     ),
     "current_charges_total": (
         "number or null — on billing statements, the current-period Statement Summary total before any carried previous balance. "
+        "Also look for labels such as 'Charges for this billing period' or 'Current Charges'. "
         "Do not confuse it with Amount to Pay when a Remaining Balance from a previous bill is also present."
     ),
     "previous_balance": (
@@ -166,6 +172,13 @@ EXTRACTION_SCHEMA = {
         "'Net: 21') near the invoice/due dates or P.O. number is a payment "
         "term (days until due), NOT the subtotal/net amount â€” do not put "
         "that number in the 'subtotal' field."
+    ),
+    "payment_status": (
+        "one of 'paid', 'unpaid', or 'unknown'. Determine the CURRENT invoice/bill status only from explicit payment evidence. "
+        "Use 'unpaid' when a positive current amount/balance due remains or the document explicitly says unpaid/outstanding. "
+        "Use 'paid' only when the document explicitly says PAID/PAID IN FULL or clearly shows payment applied/received settling the current invoice. "
+        "A phrase such as 'thank you for your payment' may refer to a PREVIOUS bill and must not by itself mark the current bill paid. "
+        "A zero-charge invoice is not automatically 'paid'; use 'unknown' unless payment evidence exists."
     ),
 }
 
