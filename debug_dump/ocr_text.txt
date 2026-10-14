@@ -1,81 +1,48 @@
-NORTH STAR INTERNATIONAL TRAVEL INC.
-CASH SALES
-19/F Trident Tower 312 Sen. Gil Puyat Avenue Bel-Air
-CHARGE SALES
-1209 City of Makati NCR, Fourth District Philippines
-Tel. No.: (632) 8885-7212
-SERVICE INVOICE
-No. :
-52091
-email: accounts@northstar-travel.com.ph
-22-July-2026
-VAT Reg. TIN: 000-423-215-00000
-Date
-BILLED TO: Tsukiden Global Solutions Inc.
-Terms :
- 30 Days
-ADDRESS:
-Meralco Ave. Ortigas
-Unit 2102, 21st Floor, One Corporate Centre, Dona Julla Vargas Avenue comer
-PO Ref No.:
-TIN NO
- 007-848-122-000
-TC:
-Ma. Carmina Buenaventura
-OSCA/ PWD/SP ID NO
-A/E:
- Ma. Carmina Buenaventura
-ATTENTION:
- UNIT COST
-ROE
-QTY.
-Item Description / Nature of Service
-TOTAL AMOUNT
-Passenger Name:
-1). HANZAWA/JIRO MR
-EBC # 0000328802
-SERVICE FEE (TICKET)
-USD 40.00
-61.70
+Invoice No.: 1234567890
+# shape.
+Date: 13/05/2026
+Page 1 of 1
+SHOPEE PHILIPPINES INC.
+37/F Net Park Bldg., 5th Ave. Bonifacio Global City, Fort Bonifacio
+Taguig City,Philippines
+VAT REG TIN008-988-817-000
+JUAN DELA CRUZ
+123 MAPLE ST.
+Customer No.: 789012
+SAN PEDRO,LAGUNA
+Terms:
+Net 30
+PHILIPPINES
+Due Date:
+12/06/2026
+Item No.
+Description
+Qty
+Unit Price
+Amount
+HD-001
+Power Drill
 1
-2,468.00 
-Vat (12% of SERVICE FEE (TICKET))
-USD 4.80
+3,495.00
+3,495.00
+HD-002
+Screwdriver Set
 1
-61.70
-296.16 
-SERVICE FEE OF BS #B0280034
-VATABLE SALES
- PHP 2,468.00
-Total Sales (VAT Inclusive) PHP 2,764.16
-VAT
-PHP 296.16
-Less: VAT
-Amount: Net of VAT
-PHP 296.16
-ZERO RATED
-Less: Discount
-PHP2,468.00
-VAT EXEMPT SALES
-(SC/PWD/NAAC/MOV/SP)
-Add:VAT PHP296.16
-Less: Withholding Tax
-Please pay this Total Amount
->>>>>>>
-Please prepare your check in favor of North Star International Travel Inc.
- TERMs: I/We hereby acknowledge and agree to pay the above mentioned amount in accordance with the credit terms. In case of default in payment, 3% interest per month
-Makati Citty and all legal costs shall be for the account of the customer plus the 25% of invoice value for attorney/s fees.
-will br charged on all overdue amount. In the event of suit arising from default of payment of thi obligation, I/WE agree that legal action shall be brought in the courts of
-Prepared by:
-Checked by:
-Approved by:
-CONFORME AND RECEIVED BY / DATE
-JanenAranez
-Norma D. Cacho
-250 Pads (50x45000162500IRemt N.CN: 04202600000218
-Customer Authorized Representative
-Mylene Canlas-Proprietress
-Macan PrinShoVAT REGIN#908-260-302-0000
-1172312028
-LL No.LLAR-049-06/2024-001213 Date Issued:June 20,2024
-eenen en aene ee ee ea eaneere eee eere e 
+695.00
+695.00
+HD-003
+Measuring Tape
+2
+349.00
+698.00
+4
+Subtotal
+4,888.00
+VAT (12%)
+586.56
+Total Amount
+5,474.56
+Thank you for shopping at Shopee!
+D0
+LES
+D

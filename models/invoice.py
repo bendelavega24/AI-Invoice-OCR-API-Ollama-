@@ -57,7 +57,6 @@ class Invoice(BaseModel):
     currency: str = "USD"
 
     payment_terms: Optional[str] = None
-    payment_status: str = "unknown"
     category: str = "Others"
 
     source_file: Optional[str] = None

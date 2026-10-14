@@ -295,7 +295,7 @@ def post_process(data: dict) -> dict:
     for text_field in (
         "vendor_name", "vendor_address", "vendor_tax_id",
         "customer_name", "customer_contact", "customer_address", "customer_tax_id",
-        "invoice_number", "payment_status",
+        "invoice_number",
     ):
         if data.get(text_field):
             data[text_field] = str(data[text_field]).strip()
@@ -3067,72 +3067,6 @@ def apply_identity_corrections_with_gate(
             corrections.pop(field, None)
     return out, corrections, locked, notes, accepted, rejected
 
-def infer_payment_status(data: dict, ocr_text: str) -> tuple[dict, list[str]]:
-    """Infer the current invoice's paid/unpaid state conservatively.
-
-    Payment status is deliberately separate from processing ``status``.  We
-    never mark a bill paid solely because text says "thank you for your
-    payment" (that frequently describes a prior billing period), and a
-    zero-charge bill is not automatically considered paid.
-    """
-    out = dict(data)
-    notes: list[str] = []
-    text = " ".join((ocr_text or "").split())
-    lower = text.lower()
-
-    raw_status = str(out.get("payment_status") or "").strip().lower()
-    status = raw_status if raw_status in {"paid", "unpaid", "unknown"} else "unknown"
-
-    def _amount_after(label_pattern: str):
-        m = re.search(label_pattern + r"\s*[:\-]?\s*(?:php|usd|eur|gbp|₱|\$)?\s*\(?([0-9][0-9,]*\.\d{1,3}|0(?:\.0+)?)\)?", lower, re.I)
-        if not m:
-            return None
-        try:
-            return float(m.group(1).replace(",", ""))
-        except Exception:
-            return None
-
-    amount_due = None
-    for pat in (r"total\s+amount\s+due", r"amount\s+due", r"balance\s+due", r"current\s+balance", r"please\s+pay"):
-        amount_due = _amount_after(pat)
-        if amount_due is not None:
-            break
-    amount_applied = None
-    for pat in (r"amount\s+applied", r"payment\s+applied", r"amount\s+paid"):
-        amount_applied = _amount_after(pat)
-        if amount_applied is not None:
-            break
-
-    explicit_paid = bool(re.search(r"\bpaid\s+in\s+full\b|\bfully\s+paid\b|\bpayment\s+received\b|\bstatus\s*[:\-]?\s*paid\b", lower))
-    explicit_unpaid = bool(re.search(r"\bunpaid\b|\boutstanding\s+(?:amount|balance)\b|\bstatus\s*[:\-]?\s*unpaid\b", lower))
-
-    inferred = "unknown"
-    if explicit_unpaid:
-        inferred = "unpaid"
-    elif amount_due is not None and amount_due > 0.005:
-        # A positive CURRENT amount due outranks generic payment wording.
-        # Statements often say prior charges "must be fully paid" or
-        # acknowledge "payments received" while a new balance is still due
-        # (QA INV-04).  Those phrases must never mark the current bill paid.
-        inferred = "unpaid"
-    elif explicit_paid:
-        inferred = "paid"
-    elif amount_due is not None and amount_due <= 0.005 and amount_applied is not None and amount_applied > 0.005:
-        inferred = "paid"
-
-    # OCR evidence wins over an unsupported LLM guess.  If OCR is inconclusive,
-    # retain a valid LLM status; otherwise use the deterministic inference.
-    if inferred != "unknown":
-        if status != inferred:
-            notes.append(f"Payment status reconciled to {inferred} from explicit current-bill payment evidence.")
-        status = inferred
-    elif status not in {"paid", "unpaid"}:
-        status = "unknown"
-
-    out["payment_status"] = status
-    return out, notes
-
-
 def has_transaction_evidence(invoice) -> bool:
     """True when the page contains evidence of a completed/real transaction.
 
@@ -3198,10 +3132,8 @@ def sanitize_for_model(data: dict) -> dict:
                 datetime.fromisoformat(str(value)).date()
             except (TypeError, ValueError):
                 data[date_field] = None
-    if str(data.get("payment_status") or "").strip().lower() not in {"paid", "unpaid", "unknown"}:
-        data["payment_status"] = "unknown"
-    else:
-        data["payment_status"] = str(data.get("payment_status") or "unknown").strip().lower()
+    # Payment status is no longer tracked; drop it if an older model/cache still emits it.
+    data.pop("payment_status", None)
 
     return data
 

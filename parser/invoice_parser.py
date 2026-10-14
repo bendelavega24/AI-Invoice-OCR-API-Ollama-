@@ -25,7 +25,7 @@ from ai.post_processing import (
     reconcile_statement_summary, reconcile_billing_statement_balances, reconcile_billing_current_period_financials, add_remaining_balance_line_item, extract_statement_summary_evidence, reconcile_line_item_geometry, reconcile_customer_address_layout, reconcile_party_ownership_layout,
     reconcile_vendor_address_block, reconcile_customer_tax_id_context, reconcile_blank_customer_address,
     reconcile_retail_line_items, reconcile_retail_tax_summary, reconcile_parking_tax_summary,
-    reconcile_loyalty_balance_context, reconcile_issuer_printer_ownership, infer_payment_status,
+    reconcile_loyalty_balance_context, reconcile_issuer_printer_ownership,
 )
 from ai.vision_verifier import (verify_against_image, recover_vendor_header_fields, verify_handwritten_invoice_date,
     verify_statement_summary_crop, verify_customer_address_crop, verify_plate_number_crop, verify_vendor_address_crop)
@@ -852,12 +852,6 @@ def _build_invoice_from_ocr(
     # 1.58: add a non-zero carried balance only after ownership cleanup.
     cleaned, balance_item_notes = add_remaining_balance_line_item(cleaned)
     reconciliation_notes.extend(balance_item_notes)
-
-    # Payment state is a separate business dimension from processing status.
-    # Reconcile it from current-bill evidence only; previous-period payment
-    # acknowledgements must not mark a new bill as paid.
-    cleaned, payment_notes = infer_payment_status(cleaned, ocr_text)
-    reconciliation_notes.extend(payment_notes)
 
     # Templates flagged ``final_pass`` own their printed fields (dates, parties,
     # VAT block, charges table) against every later generic heuristic and against

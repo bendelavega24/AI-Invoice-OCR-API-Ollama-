@@ -14,10 +14,42 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
-def init_db():
+_DB_INITIALIZED = False
+
+
+def init_db(force: bool = False):
+    """Create tables and run the lightweight migrations (once per process).
+
+    Streamlit re-executes the entry script on every interaction, and the migrations include table-wide
+    UPDATEs, so repeating them each time is wasted work."""
+    global _DB_INITIALIZED
+    if _DB_INITIALIZED and not force:
+        return
     from database import models  # noqa: F401 — ensures models are registered
     Base.metadata.create_all(bind=engine)
     _ensure_new_columns()
+    _ensure_performance_indexes()
+    _DB_INITIALIZED = True
+
+
+def _ensure_performance_indexes():
+    """Indexes for the hot queries: History/Reports order by created_at and filter by status; duplicate
+    detection filters by vendor on every save."""
+    if not settings.DATABASE_URL.startswith("sqlite"):
+        return
+    with engine.connect() as conn:
+        tables = {row[0] for row in conn.exec_driver_sql("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        if "invoices" in tables:
+            for name, cols in (
+                ("ix_invoices_created_at", "created_at"),
+                ("ix_invoices_status", "status"),
+                ("ix_invoices_vendor_id", "vendor_id"),
+                ("ix_invoices_vendor_name", "vendor_name"),
+            ):
+                conn.exec_driver_sql(f"CREATE INDEX IF NOT EXISTS {name} ON invoices ({cols})")
+        if "line_items" in tables:
+            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_line_items_invoice_id ON line_items (invoice_id)")
+        conn.commit()
 
 
 def _ensure_new_columns():
@@ -54,7 +86,6 @@ def _ensure_new_columns():
             # safety net so a legacy DB gets the column added on next app
             # startup, same as the others above.
             ("raw_text", "TEXT"),
-            ("payment_status", "TEXT NOT NULL DEFAULT 'unknown'"),
             ("source_fingerprint", "TEXT"),
         ],
     }
@@ -119,7 +150,7 @@ def _relax_invoice_number_constraint_if_needed():
                     plate_number VARCHAR, subtotal FLOAT, tax_amount FLOAT, tax_rate FLOAT, discount FLOAT,
                     withholding_tax FLOAT, zero_rated_sales FLOAT, vat_exempt_sales FLOAT, total_amount FLOAT,
                     current_charges_total FLOAT, previous_balance FLOAT, currency VARCHAR,
-                    payment_terms VARCHAR, payment_status VARCHAR NOT NULL DEFAULT 'unknown', category VARCHAR NOT NULL DEFAULT 'Others',
+                    payment_terms VARCHAR, category VARCHAR NOT NULL DEFAULT 'Others',
                     source_file VARCHAR, source_fingerprint VARCHAR, enhanced_image_path VARCHAR, original_filename VARCHAR,
                     ocr_engine_used VARCHAR, confidence_score FLOAT, status VARCHAR, raw_text TEXT, vision_notes TEXT,
                     locked BOOLEAN NOT NULL DEFAULT 0, created_at DATETIME
@@ -131,7 +162,7 @@ def _relax_invoice_number_constraint_if_needed():
                 "vendor_address", "vendor_tax_id", "customer_name", "customer_contact", "customer_address", "customer_tax_id",
                 "plate_number", "subtotal", "tax_amount", "tax_rate", "discount", "withholding_tax", "zero_rated_sales",
                 "vat_exempt_sales", "total_amount", "current_charges_total", "previous_balance", "currency", "payment_terms",
-                "payment_status", "category", "source_file", "source_fingerprint", "enhanced_image_path", "original_filename",
+                "category", "source_file", "source_fingerprint", "enhanced_image_path", "original_filename",
                 "ocr_engine_used", "confidence_score", "status", "raw_text", "vision_notes", "locked", "created_at",
             ]
             common = [c for c in target_cols if c in old_cols]
@@ -139,7 +170,6 @@ def _relax_invoice_number_constraint_if_needed():
             select_expr = {
                 "vendor_name": "COALESCE(vendor_name, 'UNKNOWN VENDOR')",
                 "category": "COALESCE(category, 'Others')",
-                "payment_status": "COALESCE(payment_status, 'unknown')",
                 "locked": "COALESCE(locked, 0)",
             }
             selected = ", ".join(select_expr.get(c, c) for c in common)
@@ -147,7 +177,6 @@ def _relax_invoice_number_constraint_if_needed():
             cur.execute("DROP TABLE invoices")
             cur.execute("ALTER TABLE invoices_new RENAME TO invoices")
             cur.execute("CREATE INDEX IF NOT EXISTS ix_invoices_invoice_number ON invoices (invoice_number)")
-            cur.execute("CREATE INDEX IF NOT EXISTS ix_invoices_payment_status ON invoices (payment_status)")
             cur.execute("CREATE INDEX IF NOT EXISTS ix_invoices_source_fingerprint ON invoices (source_fingerprint)")
             cur.execute("COMMIT")
         except Exception:

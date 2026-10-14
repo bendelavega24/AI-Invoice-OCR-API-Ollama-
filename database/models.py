@@ -70,7 +70,6 @@ class InvoiceORM(Base):
     currency = Column(String, default="USD")
 
     payment_terms = Column(String, nullable=True)
-    payment_status = Column(String, default="unknown", nullable=False, index=True)
     category = Column(String, default="Others", nullable=False)
     source_file = Column(String, nullable=True)
     source_fingerprint = Column(String, nullable=True, index=True)

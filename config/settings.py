@@ -148,7 +148,16 @@ class Settings:
     # Auth/credit problems (401/402/403) won't fix themselves, so use the long
     # one; rate limits/timeouts/5xx use the short one.
     OPENROUTER_COOLDOWN_SECONDS: int = int(os.getenv("LLM_API_COOLDOWN_SECONDS", os.getenv("OPENROUTER_COOLDOWN_SECONDS", "600")))
-    OPENROUTER_SHORT_COOLDOWN_SECONDS: int = int(os.getenv("LLM_API_SHORT_COOLDOWN_SECONDS", os.getenv("OPENROUTER_SHORT_COOLDOWN_SECONDS", "60")))
+    # 300s (was 60s): a local Ollama generation often takes longer than 60s, so with 60s the API was
+    # tried again (and could burn its full retry budget) in the middle of the same invoice.
+    OPENROUTER_SHORT_COOLDOWN_SECONDS: int = int(os.getenv("LLM_API_SHORT_COOLDOWN_SECONDS", os.getenv("OPENROUTER_SHORT_COOLDOWN_SECONDS", "300")))
+    # In "Both" mode Ollama is the safety net, so the API gets a SHORT leash before failing over instead of
+    # the full retry/timeout budget above (which is still used in "API only" mode).
+    LLM_FALLBACK_API_TIMEOUT_SECONDS: int = int(os.getenv("LLM_FALLBACK_API_TIMEOUT_SECONDS", "45"))
+    LLM_FALLBACK_API_MAX_RETRIES: int = int(os.getenv("LLM_FALLBACK_API_MAX_RETRIES", "1"))
+    LLM_FALLBACK_API_BUDGET_SECONDS: int = int(os.getenv("LLM_FALLBACK_API_BUDGET_SECONDS", "60"))
+    # Connect timeout for the hosted API, so an unreachable host fails over in seconds, not minutes.
+    LLM_API_CONNECT_TIMEOUT_SECONDS: int = int(os.getenv("LLM_API_CONNECT_TIMEOUT_SECONDS", "10"))
 
     # LLM / Ollama
     OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://localhost:11434")
@@ -179,6 +188,12 @@ class Settings:
     # doesn't fit Ollama SILENTLY drops tokens from the front: instructions, schema, even the top of the invoice
     # (vendor, invoice number). Must exceed prompt + response; raise it for long/merged multi-page invoices.
     OLLAMA_NUM_CTX: int = int(os.getenv("OLLAMA_NUM_CTX", "16384"))
+    # Hard cap on GENERATED tokens. Without it a small local model that falls into a repetition loop keeps
+    # generating until the whole context window is full (minutes on CPU) and the request "never finishes".
+    # A full invoice JSON is ~1-2k tokens; raise this only for very long multi-page invoices.
+    OLLAMA_NUM_PREDICT: int = int(os.getenv("OLLAMA_NUM_PREDICT", "6144"))
+    VISION_NUM_PREDICT: int = int(os.getenv("VISION_NUM_PREDICT", "2048"))
+    SEARCH_NUM_PREDICT: int = int(os.getenv("SEARCH_NUM_PREDICT", "1024"))
 
     # Natural-language search uses the same local text model by default but
     # has its own setting so it can be changed independently later without

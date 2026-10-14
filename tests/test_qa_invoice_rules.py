@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from ai.post_processing import infer_payment_status, has_transaction_evidence
+from ai.post_processing import has_transaction_evidence
 from ai.validator import validate_extraction
 from database.database import Base
 from database.repository import InvoiceRepository, DuplicateInvoiceError
@@ -20,7 +20,7 @@ def _repo():
 
 
 def _invoice(vendor="VENDOR A", number="1234567890", *, item="Widget", total=100.0,
-             invoice_date="2026-05-13", payment_status="unknown", fingerprint=None):
+             invoice_date="2026-05-13", fingerprint=None):
     return Invoice(
         invoice_number=number,
         invoice_date=invoice_date,
@@ -30,7 +30,6 @@ def _invoice(vendor="VENDOR A", number="1234567890", *, item="Widget", total=100
         tax_amount=0.0,
         total_amount=total,
         currency="PHP",
-        payment_status=payment_status,
         source_fingerprint=fingerprint,
     )
 
@@ -67,15 +66,6 @@ def test_same_logical_invoice_is_rejected_even_if_file_fingerprint_differs():
     finally:
         session.close()
 
-
-def test_paid_and_unpaid_versions_of_same_invoice_are_both_retained():
-    session, repo = _repo()
-    try:
-        unpaid = repo.save(_invoice(payment_status="unpaid"))
-        paid = repo.save(_invoice(payment_status="paid"))
-        assert unpaid.id != paid.id
-    finally:
-        session.close()
 
 
 def test_missing_invoice_number_can_be_saved_and_strong_duplicate_still_detected():
@@ -118,20 +108,6 @@ def test_blank_unused_form_is_not_a_transaction_qa_inv36():
     assert has_transaction_evidence(inv) is False
 
 
-def test_payment_inference_does_not_treat_previous_payment_thanks_as_paid_qa_inv37():
-    data, _ = infer_payment_status(
-        {"payment_status": "unknown"},
-        "Thank you for your payment. Previous Balance 0.00 Current Balance 791.81 Total Amount Due 791.81",
-    )
-    assert data["payment_status"] == "unpaid"
-
-
-def test_payment_inference_proof_invoice_amount_applied_zero_is_unpaid():
-    data, _ = infer_payment_status(
-        {"payment_status": "unknown"},
-        "Amount Applied USD 0.00 Total Amount Due USD 400.00 Due 03/25/2026",
-    )
-    assert data["payment_status"] == "unpaid"
 
 
 def test_exact_same_source_fingerprint_is_always_duplicate():
@@ -233,14 +209,3 @@ def test_blank_unused_form_rejected_even_if_ocr_hallucinates_identity_qa_inv36()
     )
     assert has_transaction_evidence(inv) is False
 
-
-def test_positive_current_amount_due_beats_prior_payment_wording_qa_inv04():
-    data, _ = infer_payment_status(
-        {"payment_status": "paid"},
-        (
-            "Less: Payments Received - Thank You! (1,200.00) "
-            "Previous Charges must be fully paid immediately. "
-            "Total Current Charges 1,299.00 TOTAL AMOUNT DUE 1,289.00"
-        ),
-    )
-    assert data["payment_status"] == "unpaid"

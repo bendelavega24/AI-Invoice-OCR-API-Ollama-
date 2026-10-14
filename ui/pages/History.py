@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
-from config.constants import CATEGORY_OPTIONS, PAYMENT_STATUS_OPTIONS
+from config.constants import CATEGORY_OPTIONS
 from database.repository import DuplicateInvoiceError, InvoiceLockedError
 from services.invoice_service import (
     list_invoices, get_invoice, update_invoice, lock_invoice, unlock_invoice, delete_invoice,
@@ -35,9 +35,9 @@ STATUS_OPTIONS = ["processed", "needs_review"]
 # ID column width is left untouched; the action-button columns are sized
 # tight to their icon-only buttons, and the freed-up space is redistributed
 # across the remaining data columns.
-ROW_WIDTHS = [0.4, 0.5, 1.2, 1.5, 1.0, 1.0, 1.25, 1.05, 0.9, 0.9, 0.5, 0.5, 0.5]
+ROW_WIDTHS = [0.4, 0.5, 1.2, 1.5, 1.0, 1.0, 1.25, 1.05, 0.9, 0.5, 0.5, 0.5]
 COLUMN_LABELS = [
-    "", "ID", "Invoice #", "Vendor", "Invoice Date", "Date Uploaded", "Total Amount Due", "Category", "Payment", "Status", "", "", "",
+    "", "ID", "Invoice #", "Vendor", "Invoice Date", "Date Uploaded", "Total Amount Due", "Category", "Status", "", "", "",
 ]
 
 
@@ -267,13 +267,6 @@ def render_edit_form(inv: dict):
             total_amount = st.number_input(
                 "Total Amount Due", value=float(inv.get("total_amount") or 0.0), step=0.01, format="%.2f"
             )
-            payment_status = st.selectbox(
-                "Payment Status",
-                PAYMENT_STATUS_OPTIONS,
-                index=PAYMENT_STATUS_OPTIONS.index(inv.get("payment_status") or "unknown")
-                if (inv.get("payment_status") or "unknown") in PAYMENT_STATUS_OPTIONS else 0,
-                help="Separate from processing Status. Use Unknown when the document does not prove paid/unpaid state.",
-            )
             status = st.selectbox(
                 "Status",
                 STATUS_OPTIONS,
@@ -435,7 +428,6 @@ def render_edit_form(inv: dict):
                 "zero_rated_sales": _preserve_optional_numeric(inv.get("zero_rated_sales"), zero_rated_sales),
                 "vat_exempt_sales": _preserve_optional_numeric(inv.get("vat_exempt_sales"), vat_exempt_sales),
                 "total_amount": _preserve_optional_numeric(inv.get("total_amount"), total_amount),
-                "payment_status": payment_status,
                 "status": "processed",
                 "category": category,
                 "line_items": new_line_items,
@@ -559,14 +551,13 @@ def render_invoice_row_table(invoices: list[dict], key_prefix: str, scope_key: s
         row_cols[5].write(inv.get("date_uploaded") or (inv.get("created_at") or "")[:10] or "-")
         row_cols[6].write(f"{(inv.get('total_amount') or 0):,.2f} {inv.get('currency') or ''}".strip())
         row_cols[7].write(inv.get("category") or "Others")
-        row_cols[8].write((inv.get("payment_status") or "unknown").title())
-        row_cols[9].write(inv.get("status") or "-")
-        row_cols[10].button(
+        row_cols[8].write(inv.get("status") or "-")
+        row_cols[9].button(
             "✏️", key=f"edit_btn_{key_prefix}_{inv['id']}", disabled=locked, help="Edit",
             on_click=_request_detail_switch, args=(inv["id"],), kwargs={"enter_edit": True},
         )
         lock_icon = "🔓" if locked else "🔒"
-        if row_cols[11].button(
+        if row_cols[10].button(
             lock_icon, key=f"lock_btn_{key_prefix}_{inv['id']}",
             help="Unlock" if locked else "Lock (confirm this row is correct)",
         ):
@@ -577,7 +568,7 @@ def render_invoice_row_table(invoices: list[dict], key_prefix: str, scope_key: s
             if scope_key != "current":
                 st.session_state["scroll_to_prev_month"] = True
             st.rerun()
-        if row_cols[12].button(
+        if row_cols[11].button(
             "🗑️", key=f"delete_btn_{key_prefix}_{inv['id']}",
             disabled=locked, help="Unlock first to delete" if locked else "Delete",
         ):
@@ -665,24 +656,21 @@ def render_filters(scope_key: str, invoices_pool: list[dict]) -> list[dict]:
     )
     invoice_month_labels = {_month_label(k): k for k in invoice_month_keys}
 
-    c1, c2, c3, c4, c5 = st.columns(5)
+    c1, c2, c3, c4 = st.columns(4)
     statuses = c1.multiselect("Filter by status", STATUS_OPTIONS, key=f"status_filter_{scope_key}")
-    payment_statuses = c2.multiselect("Filter by payment", PAYMENT_STATUS_OPTIONS, key=f"payment_filter_{scope_key}")
-    invoice_months = c3.multiselect(
+    invoice_months = c2.multiselect(
         "Filter by month(Invoice Date)",
         list(invoice_month_labels.keys()),
         key=f"invoice_month_filter_{scope_key}",
     )
-    categories = c4.multiselect(
+    categories = c3.multiselect(
         "Filter by category", all_categories, key=f"category_filter_{scope_key}"
     )
-    vendor_sel = c5.multiselect("Filter by vendor", vendors, key=f"vendor_filter_{scope_key}")
+    vendor_sel = c4.multiselect("Filter by vendor", vendors, key=f"vendor_filter_{scope_key}")
 
     filtered = invoices_pool
     if statuses:
         filtered = [inv for inv in filtered if inv.get("status") in statuses]
-    if payment_statuses:
-        filtered = [inv for inv in filtered if (inv.get("payment_status") or "unknown") in payment_statuses]
     if invoice_months:
         chosen_invoice_months = {invoice_month_labels[label] for label in invoice_months}
         filtered = [inv for inv in filtered if _invoice_month_key(inv) in chosen_invoice_months]
@@ -823,7 +811,6 @@ if invoices:
             _total = detail.get("total_amount")
             _total_display = f"{_total:,.2f} {detail.get('currency')}" if _total is not None else "— (not specified/extracted)"
             c2.write(f"**Total Amount Due:** {_total_display}")
-            c2.write(f"**Payment Status:** {(detail.get('payment_status') or 'unknown').title()}")
             c2.write(f"**Status:** {detail.get('status')}")
             c2.write(f"**Locked:** {'🔒 Yes' if detail.get('locked') else '🔓 No'}")
 

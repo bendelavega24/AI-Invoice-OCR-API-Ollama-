@@ -1,5 +1,5 @@
 """Data-access layer — keeps SQLAlchemy specifics out of the services layer."""
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import desc
 import re
 from sqlalchemy.exc import IntegrityError
@@ -129,12 +129,6 @@ class InvoiceRepository:
             rows.append((desc, _v("quantity", 1.0), _v("unit_price"), _v("amount")))
         return tuple(sorted(rows))
 
-    @staticmethod
-    def _payment_versions_differ(a, b) -> bool:
-        sa = str(getattr(a, "payment_status", None) or "unknown").lower()
-        sb = str(getattr(b, "payment_status", None) or "unknown").lower()
-        return {sa, sb} == {"paid", "unpaid"}
-
     def _find_duplicate(self, invoice, vendor_id: int | None, exclude_id: int | None = None):
         # Exact same source/page always wins, irrespective of later status edits.
         fingerprint = getattr(invoice, "source_fingerprint", None)
@@ -146,7 +140,7 @@ class InvoiceRepository:
             if row:
                 return row, "same uploaded source/page fingerprint"
 
-        q = self.session.query(InvoiceORM)
+        q = self.session.query(InvoiceORM).options(selectinload(InvoiceORM.line_items))
         if vendor_id is not None:
             q = q.filter(InvoiceORM.vendor_id == vendor_id)
         else:
@@ -160,11 +154,6 @@ class InvoiceRepository:
         new_items = self._line_signature(getattr(invoice, "line_items", None))
 
         for row in q.all():
-            # A paid copy and an unpaid copy can represent different lifecycle
-            # snapshots of the same business invoice and are both retained.
-            if self._payment_versions_differ(invoice, row):
-                continue
-
             row_num = self._norm_number(row.invoice_number)
             same_number = bool(new_num and row_num and new_num == row_num)
             if bool(new_num) != bool(row_num):
@@ -201,7 +190,6 @@ class InvoiceRepository:
         invoice.vendor_name = (invoice.vendor_name or "Unknown Vendor").strip().upper()
         invoice.customer_name = (invoice.customer_name or "").strip().upper() or None
         invoice.invoice_number = str(invoice.invoice_number or "").strip() or None
-        invoice.payment_status = str(getattr(invoice, "payment_status", None) or "unknown").lower()
 
         vendor = self.get_or_create_vendor(
             invoice.vendor_name, invoice.vendor_address, invoice.vendor_tax_id
@@ -237,7 +225,6 @@ class InvoiceRepository:
             previous_balance=invoice.previous_balance,
             currency=invoice.currency,
             payment_terms=invoice.payment_terms,
-            payment_status=invoice.payment_status,
             category=invoice.category,
             source_file=invoice.source_file,
             source_fingerprint=invoice.source_fingerprint,
@@ -302,9 +289,6 @@ class InvoiceRepository:
             data["customer_name"] = str(data.get("customer_name") or "").strip().upper() or None
         if "invoice_number" in data:
             data["invoice_number"] = str(data.get("invoice_number") or "").strip() or None
-        if "payment_status" in data:
-            payment = str(data.get("payment_status") or "unknown").lower()
-            data["payment_status"] = payment if payment in {"paid", "unpaid", "unknown"} else "unknown"
 
         editable_fields = [
             "invoice_number", "invoice_date", "due_date", "customer_name",
@@ -313,7 +297,7 @@ class InvoiceRepository:
             "subtotal", "tax_amount", "tax_rate", "discount", "withholding_tax",
             "zero_rated_sales", "vat_exempt_sales", "total_amount",
             "current_charges_total", "previous_balance",
-            "currency", "payment_terms", "payment_status", "status", "category", "source_file",
+            "currency", "payment_terms", "status", "category", "source_file",
         ]
         for field in editable_fields:
             if field in data:
@@ -420,7 +404,8 @@ class InvoiceRepository:
         return obj
 
     def list_all(self, limit: int = 100, offset: int = 0, status: str | None = None) -> list[InvoiceORM]:
-        q = self.session.query(InvoiceORM)
+        # selectinload: ONE extra query for all line items instead of one lazy query per invoice (N+1).
+        q = self.session.query(InvoiceORM).options(selectinload(InvoiceORM.line_items))
         if status:
             q = q.filter(InvoiceORM.status == status)
         return q.order_by(desc(InvoiceORM.created_at)).offset(offset).limit(limit).all()
@@ -429,6 +414,7 @@ class InvoiceRepository:
         like = f"%{keyword}%"
         return (
             self.session.query(InvoiceORM)
+            .options(selectinload(InvoiceORM.line_items))
             .filter(
                 (InvoiceORM.invoice_number.ilike(like))
                 | (InvoiceORM.vendor_name.ilike(like))

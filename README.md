@@ -58,8 +58,12 @@ within `OPENROUTER_RETRY_BUDGET_SECONDS`. Timeouts get `OPENROUTER_TIMEOUT_RETRI
 
 Automatic fallback: with `LLM_FALLBACK_TO_OLLAMA=true` (default), a failed OpenRouter request (invalid key, no credits,
 rate limit, timeout, 5xx) is repeated on local Ollama, and OpenRouter is skipped for `OPENROUTER_COOLDOWN_SECONDS`
-(600s for 401/402/403) or `OPENROUTER_SHORT_COOLDOWN_SECONDS` (60s otherwise). Ollama must be running with the
+(600s for 401/402/403) or `OPENROUTER_SHORT_COOLDOWN_SECONDS` (300s otherwise). Ollama must be running with the
 model pulled for the fallback to work. Failover details are stored in the diagnostic trace (`fallback_from`).
+
+In **Both** mode the API only gets a short leash before failing over to Ollama: `LLM_FALLBACK_API_TIMEOUT_SECONDS` (45),
+`LLM_FALLBACK_API_MAX_RETRIES` (1) and `LLM_FALLBACK_API_BUDGET_SECONDS` (60), plus `LLM_API_CONNECT_TIMEOUT_SECONDS` (10)
+so an unreachable host fails fast. **API only** mode keeps the full `LLM_API_*` retry/timeout settings.
 
 Notes: `openrouter/free` picks a random free model per request, so results can vary between calls and free models
 are rate limited. Invoice text/images are sent to third-party providers - do not use free models for sensitive documents

@@ -294,6 +294,15 @@ def request_openrouter(
     url, headers = openrouter_url(), openrouter_headers()
     max_retries = max(0, settings.OPENROUTER_MAX_RETRIES)
     budget = settings.OPENROUTER_RETRY_BUDGET_SECONDS
+    timeout_retries = max(0, settings.OPENROUTER_TIMEOUT_RETRIES)
+    if fallback_enabled():
+        # "Both" mode: local Ollama is the safety net, so don't let a slow/failing API eat minutes first.
+        timeout = min(timeout, settings.LLM_FALLBACK_API_TIMEOUT_SECONDS)
+        max_retries = min(max_retries, max(0, settings.LLM_FALLBACK_API_MAX_RETRIES))
+        budget = min(budget, settings.LLM_FALLBACK_API_BUDGET_SECONDS)
+        timeout_retries = 0
+    # (connect, read): an unreachable host fails fast instead of waiting the whole read timeout.
+    request_timeout = (min(settings.LLM_API_CONNECT_TIMEOUT_SECONDS, timeout), timeout)
     started = time.monotonic()
     history: list[str] = log if log is not None else []
     attempt = timeouts = 0
@@ -307,7 +316,7 @@ def request_openrouter(
         reason = None
         retry_after = None
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=timeout)
+            resp = requests.post(url, json=payload, headers=headers, timeout=request_timeout)
             last_resp = resp
             if (resp.status_code == 400 and "response_format" in payload and not json_mode_dropped
                     and "response_format" in resp.text.lower()):
@@ -347,7 +356,7 @@ def request_openrouter(
         except requests.exceptions.Timeout as exc:
             timeouts += 1
             last_exc = exc
-            if timeouts > settings.OPENROUTER_TIMEOUT_RETRIES:
+            if timeouts > timeout_retries:
                 history.append(f"attempt {attempt}: timeout")
                 raise
             reason = "timeout"

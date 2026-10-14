@@ -129,7 +129,8 @@ def _call_local_ollama(prompt: str, trace_attempt: dict | None = None) -> str:
         "stream": False,
         "format": "json",  # strongly reduces prose/fenced-code invalid-JSON failures
         "keep_alive": settings.OLLAMA_KEEP_ALIVE,
-        "options": {"temperature": settings.LLM_TEMPERATURE, "num_ctx": settings.OLLAMA_NUM_CTX},
+        "options": {"temperature": settings.LLM_TEMPERATURE, "num_ctx": settings.OLLAMA_NUM_CTX,
+                    "num_predict": settings.OLLAMA_NUM_PREDICT},
     }
 
     if trace_attempt is not None:
@@ -299,28 +300,6 @@ def extract_invoice_data(ocr_text: str, template_name: str | None = None, trace:
 
     if template_name == "meralco":
         parsed = _apply_meralco_template(parsed, ocr_text, ocr_lines, trace)
-    # Temporary debug dump: shows what the template step actually received.
-    try:
-        import os as _os
-        if _os.getenv("INVOICE_DEBUG_DUMP", "true").lower() == "true":
-            _dir = _os.getenv("INVOICE_DEBUG_DIR", "debug_dump")
-            _os.makedirs(_dir, exist_ok=True)
-            with open(_os.path.join(_dir, "ocr_text.txt"), "w", encoding="utf-8") as _f:
-                _f.write(str(ocr_text or ""))
-            with open(_os.path.join(_dir, "info.json"), "w", encoding="utf-8") as _f:
-                json.dump({
-                    "template_name": template_name,
-                    "ocr_lines_passed": ocr_lines is not None,
-                    "ocr_lines_count": len(ocr_lines) if ocr_lines else 0,
-                    "meralco_template_notes": trace.get("meralco_template_notes"),
-                    "meralco_template_error": trace.get("meralco_template_error"),
-                    "final_parsed_json": parsed,
-                }, _f, indent=2, default=str, ensure_ascii=False)
-            if ocr_lines:
-                with open(_os.path.join(_dir, "ocr_lines.json"), "w", encoding="utf-8") as _f:
-                    json.dump(ocr_lines, _f, indent=1, default=str, ensure_ascii=False)
-    except Exception as _exc:
-        logger.warning(f"debug dump failed: {_exc}")
     trace["final_validation_issues"] = validate_extraction(parsed, template_name=template_name, ocr_text=ocr_text)
     trace["final_parsed_json"] = parsed
     return parsed

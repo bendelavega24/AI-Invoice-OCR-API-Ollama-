@@ -9,7 +9,7 @@ from datetime import datetime
 EXPORT_COLUMNS = [
     "ID", "Invoice #", "Vendor", "Customer", "Plate #", "Invoice Date", "Date Uploaded", "Due Date", "Filename",
     "Category", "Vatable Sales", "VAT-Exempt Sales", "Zero-Rated Sales", "VAT", "Withholding Tax",
-    "Current Charges Total", "Previous Balance", "Total Amount Due", "Currency", "Payment Status",
+    "Current Charges Total", "Previous Balance", "Total Amount Due", "Currency",
 ]
 
 
@@ -56,5 +56,4 @@ def invoice_export_row(inv: dict) -> dict:
         "Previous Balance": inv.get("previous_balance") if inv.get("previous_balance") is not None else "",
         "Total Amount Due": inv.get("total_amount") if inv.get("total_amount") is not None else "",
         "Currency": inv.get("currency") or "-",
-        "Payment Status": (inv.get("payment_status") or "unknown").title(),
     }

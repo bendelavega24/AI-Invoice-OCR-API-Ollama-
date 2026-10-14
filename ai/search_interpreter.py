@@ -42,7 +42,6 @@ _INVOICE_PRESENCE_ALIASES = {
     "source_file": ["source file"],
     "enhanced_image_path": ["enhanced image", "cleaned image"],
     "payment_terms": ["payment terms", "payment term"],
-    "payment_status": ["payment status", "paid", "unpaid", "not paid"],
     "ocr_engine_used": ["ocr engine"],
     "raw_text": ["raw ocr text", "ocr text"],
     "vision_notes": ["vision notes", "vision note"],
@@ -133,7 +132,6 @@ Text fields:
 - source_file = stored source-file path/name
 - enhanced_image_path = enhanced/cropped invoice image
 - payment_terms = payment terms
-- payment_status = paid/unpaid/unknown status of the current invoice
 - ocr_engine_used = OCR engine
 - raw_text = stored raw OCR text
 - vision_notes = vision verification notes
@@ -266,7 +264,7 @@ def _search_via_ollama(prompt: str) -> str:
         "stream": False,
         "format": "json",
         "keep_alive": settings.OLLAMA_KEEP_ALIVE,
-        "options": {"temperature": 0.0},
+        "options": {"temperature": 0.0, "num_predict": settings.SEARCH_NUM_PREDICT},
     }
     try:
         response = requests.post(url, json=payload, timeout=settings.SEARCH_LLM_TIMEOUT_SECONDS)

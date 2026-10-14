@@ -140,7 +140,8 @@ def _post_ollama_generate(prompt: str, image_b64: str, trace: dict) -> str | Non
         "stream": False,
         "format": "json",
         "keep_alive": settings.OLLAMA_KEEP_ALIVE,
-        "options": {"temperature": settings.LLM_TEMPERATURE, "num_ctx": settings.VISION_NUM_CTX},
+        "options": {"temperature": settings.LLM_TEMPERATURE, "num_ctx": settings.VISION_NUM_CTX,
+                    "num_predict": settings.VISION_NUM_PREDICT},
     }
     attempt = {"endpoint": "/api/generate"}
     trace.setdefault("http_attempts", []).append(attempt)
@@ -169,7 +170,8 @@ def _post_chat(prompt: str, image_b64: str, trace: dict) -> str | None:
         "stream": False,
         "format": "json",
         "keep_alive": settings.OLLAMA_KEEP_ALIVE,
-        "options": {"temperature": settings.LLM_TEMPERATURE, "num_ctx": settings.VISION_NUM_CTX},
+        "options": {"temperature": settings.LLM_TEMPERATURE, "num_ctx": settings.VISION_NUM_CTX,
+                    "num_predict": settings.VISION_NUM_PREDICT},
     }
     attempt = {"endpoint": "/api/chat"}
     trace.setdefault("http_attempts", []).append(attempt)
