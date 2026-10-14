@@ -957,7 +957,17 @@ def verify_against_image(
 
     if template_name is None:
         template_name = detect_invoice_template(str(extracted.get("vendor_name") or ""))
+    # The detector only sees the vendor name here, so it returns "generic" for MERALCO.
+    if template_name in (None, "", "generic") and "MERALCO" in str(extracted.get("vendor_name") or "").upper():
+        template_name = "meralco"
     fields = WATSONS_VISION_CHECK_FIELDS if template_name == "watsons" else VISION_CHECK_FIELDS
+    if template_name == "meralco":
+        # The Meralco template already fixed these from printed evidence (and the vision
+        # model proved wrong on them: due date as invoice date, invoice no. as TIN, swapped
+        # seller/buyer addresses), so do not let vision overwrite them.
+        from ai.invoice_templates.meralco import MERALCO_PINNED_FIELDS
+        _skip = set(MERALCO_PINNED_FIELDS) | {"vendor_address", "customer_address"}
+        fields = [f for f in fields if f not in _skip]
     fields_to_check = {f: extracted.get(f) for f in fields}
     trace["fields_sent"] = fields_to_check
     prompt = build_vision_verification_prompt(fields_to_check, template_name=template_name)

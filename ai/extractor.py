@@ -104,6 +104,22 @@ def _call_openrouter(prompt: str, trace_attempt: dict | None = None) -> str:
     return raw
 
 
+def _warn_if_prompt_truncated(body: dict, trace_attempt: dict | None) -> None:
+    """Ollama silently truncates a prompt that doesn't fit its context window and reports the window size as the
+    number of prompt tokens it evaluated. Make that visible: it is the kind of failure that otherwise only shows up
+    as 'the invoice was accepted but fields were extracted wrongly'. (Best-effort: with prompt caching Ollama can
+    under-report prompt_eval_count, so a missing warning does not prove nothing was cut.)"""
+    used = body.get("prompt_eval_count")
+    ctx = settings.OLLAMA_NUM_CTX
+    if isinstance(used, int) and ctx and used >= ctx - 8:
+        logger.warning(
+            f"Ollama evaluated {used} prompt tokens with a {ctx}-token context window: the prompt was almost "
+            f"certainly truncated and extraction quality will suffer. Raise OLLAMA_NUM_CTX."
+        )
+        if trace_attempt is not None:
+            trace_attempt["possible_prompt_truncation"] = True
+
+
 def _call_local_ollama(prompt: str, trace_attempt: dict | None = None) -> str:
     """Original local-Ollama request, unchanged."""
     url = f"{settings.OLLAMA_HOST}/api/generate"
@@ -113,12 +129,13 @@ def _call_local_ollama(prompt: str, trace_attempt: dict | None = None) -> str:
         "stream": False,
         "format": "json",  # strongly reduces prose/fenced-code invalid-JSON failures
         "keep_alive": settings.OLLAMA_KEEP_ALIVE,
-        "options": {"temperature": settings.LLM_TEMPERATURE},
+        "options": {"temperature": settings.LLM_TEMPERATURE, "num_ctx": settings.OLLAMA_NUM_CTX},
     }
 
     if trace_attempt is not None:
         trace_attempt.update({
             "endpoint": "/api/generate",
+            "num_ctx": settings.OLLAMA_NUM_CTX,
             "model": settings.OLLAMA_MODEL,
             "prompt": prompt,
             "request_format": "json",
@@ -140,6 +157,7 @@ def _call_local_ollama(prompt: str, trace_attempt: dict | None = None) -> str:
             if trace_attempt is not None:
                 trace_attempt["raw_response"] = raw
                 trace_attempt["usage"] = _usage_from_ollama(body)
+            _warn_if_prompt_truncated(body, trace_attempt)
             return raw
         except requests.exceptions.Timeout as e:
             elapsed = time.perf_counter() - start
@@ -165,7 +183,30 @@ def _call_local_ollama(prompt: str, trace_attempt: dict | None = None) -> str:
     ) from last_error
 
 
-def extract_invoice_data(ocr_text: str, template_name: str | None = None, trace: dict | None = None) -> dict:
+def _looks_like_meralco(ocr_text: str) -> bool:
+    """Backstop when utils.invoice_template_detector does not recognise a Meralco bill."""
+    t = str(ocr_text or "")
+    return bool(re.search(r"(?i)meralco", t) and re.search(r"(?i)ELECTRIC\s*BILL|EB\s*Invoice", t))
+
+
+def _apply_meralco_template(parsed: dict, ocr_text: str, ocr_lines, trace: dict) -> dict:
+    """Deterministic Meralco rules (bill date, customer TIN, VAT block, addresses,
+    carried balance). Runs after the LLM loop so the model cannot undo them."""
+    from ai.invoice_templates.meralco import normalize_meralco_extraction
+    try:
+        fixed, notes = normalize_meralco_extraction(parsed, ocr_text, ocr_lines)
+    except Exception as exc:  # never lose a good extraction to a template bug
+        logger.warning(f"Meralco template post-processing failed: {exc}")
+        trace["meralco_template_error"] = str(exc)
+        return parsed
+    trace["meralco_template_notes"] = notes
+    for n in notes:
+        logger.info(n)
+    return fixed
+
+
+def extract_invoice_data(ocr_text: str, template_name: str | None = None, trace: dict | None = None,
+                         ocr_lines: list | None = None) -> dict:
     """Run extraction + validation/correction loop.
 
     ``trace`` is optional and backward-compatible. When provided it is
@@ -183,6 +224,10 @@ def extract_invoice_data(ocr_text: str, template_name: str | None = None, trace:
 
     if template_name is None:
         template_name = detect_invoice_template(ocr_text)
+    # utils.invoice_template_detector returns "generic" (not None) when it is not confident,
+    # so treat both as "no template" before the Meralco backstop.
+    if template_name in (None, "", "generic") and _looks_like_meralco(ocr_text):
+        template_name = "meralco"
     trace["template_name"] = template_name
     logger.info(f"Invoice template selected: {template_name}")
 
@@ -252,6 +297,30 @@ def extract_invoice_data(ocr_text: str, template_name: str | None = None, trace:
             trace["stopped_on_invalid_correction"] = {"attempt": attempt + 1, "reason": "correction returned no usable object; retained last usable extraction"}
             break
 
+    if template_name == "meralco":
+        parsed = _apply_meralco_template(parsed, ocr_text, ocr_lines, trace)
+    # Temporary debug dump: shows what the template step actually received.
+    try:
+        import os as _os
+        if _os.getenv("INVOICE_DEBUG_DUMP", "true").lower() == "true":
+            _dir = _os.getenv("INVOICE_DEBUG_DIR", "debug_dump")
+            _os.makedirs(_dir, exist_ok=True)
+            with open(_os.path.join(_dir, "ocr_text.txt"), "w", encoding="utf-8") as _f:
+                _f.write(str(ocr_text or ""))
+            with open(_os.path.join(_dir, "info.json"), "w", encoding="utf-8") as _f:
+                json.dump({
+                    "template_name": template_name,
+                    "ocr_lines_passed": ocr_lines is not None,
+                    "ocr_lines_count": len(ocr_lines) if ocr_lines else 0,
+                    "meralco_template_notes": trace.get("meralco_template_notes"),
+                    "meralco_template_error": trace.get("meralco_template_error"),
+                    "final_parsed_json": parsed,
+                }, _f, indent=2, default=str, ensure_ascii=False)
+            if ocr_lines:
+                with open(_os.path.join(_dir, "ocr_lines.json"), "w", encoding="utf-8") as _f:
+                    json.dump(ocr_lines, _f, indent=1, default=str, ensure_ascii=False)
+    except Exception as _exc:
+        logger.warning(f"debug dump failed: {_exc}")
     trace["final_validation_issues"] = validate_extraction(parsed, template_name=template_name, ocr_text=ocr_text)
     trace["final_parsed_json"] = parsed
     return parsed

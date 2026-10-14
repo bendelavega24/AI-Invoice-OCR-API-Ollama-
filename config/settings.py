@@ -14,6 +14,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 class Settings:
     # Stop repeated unavailable vision calls within one upload batch; reset on next batch.
     VISION_BATCH_GUARD_ENABLED: bool = os.getenv("VISION_BATCH_GUARD_ENABLED", "true").lower() == "true"
+    # Multi-page PDFs: treat pages that carry an explicit "Page N of M" marker (N>1) as continuations of
+    # the preceding page's invoice instead of as separate invoices. Set false for the old one-invoice-per-page behaviour.
+    MULTIPAGE_MERGE_CONTINUATIONS: bool = os.getenv("MULTIPAGE_MERGE_CONTINUATIONS", "true").lower() == "true"
     LLM_EARLY_CLEANUP_ENABLED: bool = os.getenv("LLM_EARLY_CLEANUP_ENABLED", "true").lower() == "true"
 
     # OCR
@@ -170,6 +173,12 @@ class Settings:
     # and the next request pays a cold-start reload on top of generation
     # time — often the real cause of a timeout that "shouldn't" happen.
     OLLAMA_KEEP_ALIVE: str = os.getenv("OLLAMA_KEEP_ALIVE", "30m")
+    # Context window for the invoice-extraction/correction request. The prompt (instructions + JSON schema) is
+    # ~4,500 tokens BEFORE any OCR text is added, and a typical invoice brings it to 5,000-6,000+. Ollama's own
+    # default window is only 2,048-4,096 tokens (it depends on the version and available VRAM), and when a prompt
+    # doesn't fit Ollama SILENTLY drops tokens from the front: instructions, schema, even the top of the invoice
+    # (vendor, invoice number). Must exceed prompt + response; raise it for long/merged multi-page invoices.
+    OLLAMA_NUM_CTX: int = int(os.getenv("OLLAMA_NUM_CTX", "16384"))
 
     # Natural-language search uses the same local text model by default but
     # has its own setting so it can be changed independently later without

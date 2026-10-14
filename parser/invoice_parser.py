@@ -3,6 +3,8 @@ Top-level orchestrator: turns a raw invoice file into a validated Invoice
 object by chaining OCR -> LLM extraction -> validation -> post-processing.
 """
 from pathlib import Path
+import inspect
+import re
 import time
 
 from ai.vision_budget import vision_scope, verification_summary, verification_warning
@@ -44,6 +46,32 @@ class InvoiceParsingError(Exception):
     pass
 
 
+def _run_template_post_process(template: dict, data: dict, ocr_text: str, ocr_lines=None, hints=None):
+    """Call a template's post_process, passing OCR geometry / hints only to templates
+    that declare those parameters (the Watsons rule keeps its original signature)."""
+    fn = template["post_process"]
+    params = inspect.signature(fn).parameters
+    kwargs = {}
+    if "ocr_lines" in params:
+        kwargs["ocr_lines"] = ocr_lines or []
+    if "hints" in params:
+        kwargs["hints"] = hints or {}
+    return fn(data, ocr_text, **kwargs)
+
+
+def _drop_superseded_vision_notes(vision_issues: list[str], final_data: dict, pinned_fields) -> tuple[list[str], list[str]]:
+    """Remove "Vision check: auto-corrected 'f' ... to 'v'" notes for template-pinned
+    fields whose final value is not v (the template proved the vision read wrong)."""
+    kept, dropped = [], []
+    for note in vision_issues:
+        m = re.search(r"auto-corrected '(\w+)' from .*? to '([^']*)'", str(note))
+        if m and m.group(1) in pinned_fields and str(final_data.get(m.group(1))) != m.group(2):
+            dropped.append(f"Template evidence overrode the vision read for {m.group(1)}; final value {final_data.get(m.group(1))!r}.")
+        else:
+            kept.append(note)
+    return kept, dropped
+
+
 @vision_scope
 def parse_invoice(file_path: str, force_handwritten: bool | None = None) -> Invoice:
     """
@@ -83,17 +111,195 @@ def parse_invoice(file_path: str, force_handwritten: bool | None = None) -> Invo
     )
 
 
+# "Page 2 of 3", "Pg 2/3", "page 2 / 3" — an explicit page marker is the only signal used to decide that
+# a page continues the previous page's invoice (see _group_continuation_pages).
+_PAGE_MARKER_RE = re.compile(r"\b(?:page|pg)\.?\s*(\d{1,3})\s*(?:of|/)\s*(\d{1,3})\b", re.IGNORECASE)
+
+
+def _page_marker(text: str) -> tuple[int, int] | None:
+    """Return (N, M) from the first sensible "Page N of M" marker in a page's OCR text, else None."""
+    for match in _PAGE_MARKER_RE.finditer(text or ""):
+        n, m = int(match.group(1)), int(match.group(2))
+        if 1 <= n <= m:
+            return n, m
+    return None
+
+
+def _pages_label(page_numbers: list[int]) -> str:
+    if len(page_numbers) == 1:
+        return f"page {page_numbers[0]}"
+    return f"pages {page_numbers[0]}-{page_numbers[-1]}"
+
+
+def _group_continuation_pages(pages: list[dict]) -> list[list[dict]]:
+    """
+    Group per-page OCR results into invoices.
+
+    By default every page is its own invoice (a multi-page PDF is often a batch of separate invoices).
+    The exception: a page whose OCR text carries an explicit "Page N of M" marker with N > 1 is a
+    CONTINUATION of the invoice that started on the preceding page, provided it directly follows that
+    page, N is its position within the group, and M agrees with the first page's marker (when that page
+    has one). Without this, page 2+ of a single invoice were parsed as separate invoices — usually
+    rejected as "no transaction evidence"/duplicates, or saved as bogus extra invoices.
+
+    Deliberately conservative: no marker -> no merge, so batches of separate invoices are unaffected.
+    """
+    if not getattr(settings, "MULTIPAGE_MERGE_CONTINUATIONS", True):
+        return [[page] for page in pages]
+
+    groups: list[list[dict]] = []
+    for page in pages:
+        marker = _page_marker(page.get("text", ""))
+        if groups and marker and marker[0] > 1:
+            group = groups[-1]
+            first, last = group[0], group[-1]
+            position = page.get("page_number", 0) - first.get("page_number", 0) + 1
+            first_marker = _page_marker(first.get("text", ""))
+            contiguous = page.get("page_number", 0) == last.get("page_number", 0) + 1
+            same_total = first_marker is None or first_marker[1] == marker[1]
+            if contiguous and position == marker[0] and same_total:
+                group.append(page)
+                continue
+        groups.append([page])
+    return groups
+
+
+def _page_height(page: dict) -> float:
+    """Height (px) of the page's OCR coordinate space, used to stack pages into one tall virtual page."""
+    height = 0.0
+    for key in ("processed_image_path", "oriented_image_path", "image_path"):
+        path = page.get(key)
+        if not path:
+            continue
+        try:
+            from PIL import Image
+            with Image.open(path) as img:
+                height = float(img.size[1])
+            break
+        except Exception:
+            continue
+    for line in page.get("lines", []) or []:
+        for point in line.get("bbox") or []:
+            height = max(height, float(point[1]))
+    return height
+
+
+def _merge_page_group(group: list[dict]) -> dict:
+    """
+    Combine the OCR results of one invoice's pages into a single OCR result. Text is concatenated in page
+    order; line boxes are shifted down by the heights of the preceding pages so geometry-based
+    reconciliation sees one tall page instead of overlapping pages. The first page keeps ownership of the
+    image/paths (vision cross-check looks at the header page).
+    """
+    if len(group) == 1:
+        return group[0]
+
+    merged = dict(group[0])
+    lines: list[dict] = []
+    offset = 0.0
+    for page in group:
+        for line in page.get("lines", []) or []:
+            shifted = dict(line)
+            if line.get("bbox"):
+                shifted["bbox"] = [[pt[0], pt[1] + offset] for pt in line["bbox"]]
+            lines.append(shifted)
+        offset += _page_height(page)
+
+    confidences = [page.get("avg_confidence", 0.0) or 0.0 for page in group]
+    engines = set()
+    for page in group:
+        engines.update(e for e in (page.get("engine") or "").split("+") if e)
+
+    merged.update({
+        "text": "\n\n".join(page.get("text", "") for page in group),
+        "lines": lines,
+        "avg_confidence": round(sum(confidences) / len(confidences), 4),
+        "engine": "+".join(sorted(engines)) if engines else None,
+        "page_numbers": [page.get("page_number") for page in group],
+        "merged_page_images": [page.get("image_path") for page in group],
+    })
+    return merged
+
+
+@vision_scope
+def parse_invoice_pages_detailed(file_path: str, force_handwritten: bool | None = None) -> tuple[list[Invoice], list[dict]]:
+    """
+    Like parse_invoice_pages(), but also reports the pages that could NOT be turned into an invoice.
+
+    Returns (invoices, skipped). Each skipped entry is
+    {"pages": [2], "total_pages": 3, "reason": "..."} so callers can tell the user exactly which pages
+    failed instead of silently returning a partial result. Each returned Invoice has source_pages /
+    source_total_pages set to the real page numbers of the file it was built from (a merged
+    multi-page invoice lists all its pages).
+
+    One page failing — OCR crash, blank page, LLM/validation error of ANY kind — never discards the other
+    pages. Raises InvoiceParsingError only when the file itself can't be read/OCR'd at all.
+    """
+    logger.info(f"Starting multi-page invoice parse: {file_path}")
+    ocr_start = time.perf_counter()
+    try:
+        pages = extract_pages_from_file(file_path, force_handwritten=force_handwritten)
+    except Exception as e:
+        logger.error(f"Could not read/OCR {file_path}: {e}")
+        raise InvoiceParsingError(f"Could not read or OCR the file: {e}") from e
+    file_ocr_elapsed = round(time.perf_counter() - ocr_start, 3)
+    for page in pages:
+        page["file_ocr_elapsed_seconds"] = file_ocr_elapsed
+
+    invoices: list[Invoice] = []
+    skipped: list[dict] = []
+    for group in _group_continuation_pages(pages):
+        page_numbers = [page.get("page_number", 1) for page in group]
+        total_pages = group[0].get("total_pages", len(pages))
+        label = _pages_label(page_numbers)
+        merged = _merge_page_group(group)
+        ocr_text = merged.get("text", "")
+
+        if not ocr_text.strip():
+            reason = f"OCR failed: {merged['ocr_error']}" if merged.get("ocr_error") else "OCR produced no text (blank or unreadable page)"
+            logger.warning(f"{file_path} — {label}/{total_pages}: {reason}, skipping.")
+            skipped.append({"pages": page_numbers, "total_pages": total_pages, "reason": reason})
+            continue
+
+        try:
+            invoice = _build_invoice_from_ocr(
+                file_path=file_path,
+                image_path=merged.get("image_path", file_path),
+                ocr_text=ocr_text,
+                ocr_confidence=merged.get("avg_confidence", 0.0),
+                ocr_engine=merged.get("engine"),
+                ocr_lines=merged.get("lines", []),
+                ocr_result=merged,
+                page_number=page_numbers[0],
+            )
+        except InvoiceParsingError as e:
+            logger.warning(f"{file_path} — extraction failed for {label}/{total_pages}: {e}")
+            skipped.append({"pages": page_numbers, "total_pages": total_pages, "reason": str(e)})
+            continue
+        except Exception as e:
+            # Unexpected error on this page (LLM transport error, schema/validation bug, ...). Isolate it:
+            # the remaining pages still get processed and this one is reported, not lost.
+            logger.exception(f"{file_path} — unexpected error processing {label}/{total_pages}")
+            skipped.append({"pages": page_numbers, "total_pages": total_pages, "reason": f"{type(e).__name__}: {e}"})
+            continue
+
+        invoice.source_pages = page_numbers
+        invoice.source_total_pages = total_pages
+        invoices.append(invoice)
+
+    return invoices, skipped
+
+
 @vision_scope
 def parse_invoice_pages(file_path: str, force_handwritten: bool | None = None) -> list[Invoice]:
     """
     Full pipeline for a file that may contain MULTIPLE, separate invoices
     — one per page — rather than a single invoice spread across several
-    pages. This is the entrypoint services/invoice_service.py should use
-    for anything a user uploads.
+    pages. Kept as the simple list-returning entrypoint; services/invoice_service.py
+    uses parse_invoice_pages_detailed() so it can also report skipped pages.
 
-    Why this exists: a multi-page PDF is frequently a batch of unrelated
-    invoices stacked into one file (e.g. two different vendors' service
-    invoices scanned together), not one invoice split across pages. The
+    Why per-page: a multi-page PDF is frequently a batch of unrelated
+    invoices stacked into one file, not one invoice split across pages. The
     old parse_invoice() ran OCR once, concatenated every page's text into
     a single blob, and asked the LLM for ONE JSON invoice object back —
     which silently discarded every invoice on the file but whichever one
@@ -101,61 +307,24 @@ def parse_invoice_pages(file_path: str, force_handwritten: bool | None = None) -
     function instead runs OCR independently PER PAGE (see
     ocr/ocr_engine.py::extract_pages_from_file) and the complete
     extract -> reconcile -> validate -> score pipeline independently for
-    EACH page's text, so every invoice in the file gets its own result.
+    each invoice. Pages that explicitly continue the previous page
+    ("Page 2 of 3") are merged into that page's invoice first — see
+    _group_continuation_pages().
 
     A single-page image still goes through this same path and simply
     returns a one-element list — callers should always treat the result
     as a list, never assume exactly one invoice per file.
 
-    A page whose OCR text is blank (e.g. a genuine blank divider/cover
-    page) is skipped rather than failing the whole batch. Raises
-    InvoiceParsingError only if EVERY page in the file failed or produced
-    no text — a partial batch (some pages good, some not) still returns
-    whatever succeeded.
+    A page that fails is skipped rather than failing the whole batch.
+    Raises InvoiceParsingError only if EVERY page in the file failed or
+    produced no text — a partial batch still returns whatever succeeded.
     """
-    logger.info(f"Starting multi-page invoice parse: {file_path}")
-    ocr_start = time.perf_counter()
-    pages = extract_pages_from_file(file_path, force_handwritten=force_handwritten)
-    file_ocr_elapsed = round(time.perf_counter() - ocr_start, 3)
-    for page in pages:
-        page["file_ocr_elapsed_seconds"] = file_ocr_elapsed
-
-    invoices: list[Invoice] = []
-    skip_reasons: list[str] = []
-    for page in pages:
-        page_number = page.get("page_number", 1)
-        total_pages = page.get("total_pages", len(pages))
-        ocr_text = page.get("text", "")
-
-        if not ocr_text.strip():
-            msg = f"page {page_number}/{total_pages}: OCR produced no text"
-            logger.warning(f"{file_path} — {msg}, skipping.")
-            skip_reasons.append(msg)
-            continue
-
-        try:
-            invoice = _build_invoice_from_ocr(
-                file_path=file_path,
-                image_path=page.get("image_path", file_path),
-                ocr_text=ocr_text,
-                ocr_confidence=page.get("avg_confidence", 0.0),
-                ocr_engine=page.get("engine"),
-                ocr_lines=page.get("lines", []),
-                ocr_result=page,
-                page_number=page_number,
-            )
-        except InvoiceParsingError as e:
-            msg = f"page {page_number}/{total_pages}: {e}"
-            logger.warning(f"{file_path} — extraction failed for {msg}")
-            skip_reasons.append(msg)
-            continue
-
-        invoices.append(invoice)
-
+    invoices, skipped = parse_invoice_pages_detailed(file_path, force_handwritten=force_handwritten)
     if not invoices:
-        reasons = "; ".join(skip_reasons) if skip_reasons else "no pages found"
+        reasons = "; ".join(
+            f"{_pages_label(s['pages'])}/{s['total_pages']}: {s['reason']}" for s in skipped
+        ) or "no pages found"
         raise InvoiceParsingError(f"No invoice could be extracted from any page of {file_path} ({reasons}).")
-
     return invoices
 
 
@@ -186,6 +355,13 @@ def _build_invoice_from_ocr(
     """
     # 2. Detect a stable vendor-specific invoice layout, then run the LLM
     # extraction with that template injected into the prompt.
+    # OCR boxes (ocr_lines) are in the coordinates of the UPRIGHT image when the page was auto-rotated, so every
+    # image-based check must look at that rotated copy — handing them the original sideways file sends the vision
+    # model a sideways page and crops the wrong region with the rotated boxes.
+    vision_image_path = image_path
+    _oriented = (ocr_result or {}).get("oriented_image_path")
+    if _oriented and Path(_oriented).exists():
+        vision_image_path = _oriented
     pipeline_start = time.perf_counter()
     vision_before = verification_summary({})
     template_name = detect_invoice_template(ocr_text)
@@ -224,7 +400,7 @@ def _build_invoice_from_ocr(
     template = get_template(template_name)
     template_notes: list[str] = []
     if template and template.get("post_process"):
-        cleaned, template_notes = template["post_process"](cleaned, ocr_text)
+        cleaned, template_notes = _run_template_post_process(template, cleaned, ocr_text, ocr_lines)
 
     # 4a. Heuristic backstop: drop line items whose "description" is
     # actually a bare price or product code (see ai/post_processing.
@@ -398,7 +574,7 @@ def _build_invoice_from_ocr(
             "skipped_reason": "OCR geometry already owns Statement Summary; redundant vision crop skipped for speed.",
         })
     else:
-        summary_crop, summary_crop_notes = verify_statement_summary_crop(image_path, ocr_lines or [], trace=summary_crop_trace)
+        summary_crop, summary_crop_notes = verify_statement_summary_crop(vision_image_path, ocr_lines or [], trace=summary_crop_trace)
     vision_trace["statement_summary_verification"] = summary_crop_trace
     if summary_crop_notes:
         reconciliation_notes.extend(summary_crop_notes)
@@ -450,7 +626,7 @@ def _build_invoice_from_ocr(
     # correction, which feeds into `issues` and forces needs_review=True
     # (see ai/confidence.py), so an auto-corrected value still requires a
     # human to review and lock it before it's treated as final.
-    vision_corrections, vision_issues = verify_against_image(image_path, cleaned, template_name=template_name, trace=vision_trace)
+    vision_corrections, vision_issues = verify_against_image(vision_image_path, cleaned, template_name=template_name, trace=vision_trace)
 
     # 1.50: vision financial values do not get a blind ``dict.update``. Treat
     # the image-read financial set as evidence, gate it through the accounting
@@ -523,7 +699,7 @@ def _build_invoice_from_ocr(
     # read than the full page and is not told the existing month value.
     date_crop_trace: dict = {}
     date_crop_value, date_crop_notes = verify_handwritten_invoice_date(
-        image_path, ocr_lines or [], trace=date_crop_trace
+        vision_image_path, ocr_lines or [], trace=date_crop_trace
     )
     vision_trace["handwritten_date_verification"] = date_crop_trace
     if date_crop_value and date_crop_value != cleaned.get("invoice_date"):
@@ -567,7 +743,7 @@ def _build_invoice_from_ocr(
     # so a vision model cannot reintroduce the exact CASH/SUBTOTAL mix-ups
     # that the Watsons rules already corrected.
     if template and template.get("post_process"):
-        cleaned, post_vision_template_notes = template["post_process"](cleaned, ocr_text)
+        cleaned, post_vision_template_notes = _run_template_post_process(template, cleaned, ocr_text, ocr_lines)
         if post_vision_template_notes:
             reconciliation_notes.extend(post_vision_template_notes)
 
@@ -600,7 +776,7 @@ def _build_invoice_from_ocr(
     if post_vision_address_notes:
         reconciliation_notes.extend(post_vision_address_notes)
     address_crop_trace: dict = {}
-    address_crop_value, address_crop_notes = verify_customer_address_crop(image_path, ocr_lines or [], trace=address_crop_trace)
+    address_crop_value, address_crop_notes = verify_customer_address_crop(vision_image_path, ocr_lines or [], trace=address_crop_trace)
     vision_trace["customer_address_verification"] = address_crop_trace
     if address_crop_value:
         old_addr=str(cleaned.get("customer_address") or "").strip()
@@ -644,7 +820,7 @@ def _build_invoice_from_ocr(
         })
     else:
         vendor_addr_value, vendor_addr_notes = verify_vendor_address_crop(
-            image_path, cleaned.get("vendor_address"), ocr_lines or [], trace=vendor_addr_trace
+            vision_image_path, cleaned.get("vendor_address"), ocr_lines or [], trace=vendor_addr_trace
         )
     vision_trace["vendor_address_verification"] = vendor_addr_trace
     if vendor_addr_value:
@@ -652,7 +828,7 @@ def _build_invoice_from_ocr(
     reconciliation_notes.extend(vendor_addr_notes)
 
     plate_trace: dict = {}
-    plate_value, plate_notes = verify_plate_number_crop(image_path, ocr_lines or [], trace=plate_trace)
+    plate_value, plate_notes = verify_plate_number_crop(vision_image_path, ocr_lines or [], trace=plate_trace)
     vision_trace["plate_number_verification"] = plate_trace
     if plate_value:
         old_plate=str(cleaned.get("plate_number") or "").strip().upper()
@@ -682,6 +858,18 @@ def _build_invoice_from_ocr(
     # acknowledgements must not mark a new bill as paid.
     cleaned, payment_notes = infer_payment_status(cleaned, ocr_text)
     reconciliation_notes.extend(payment_notes)
+
+    # Templates flagged ``final_pass`` own their printed fields (dates, parties,
+    # VAT block, charges table) against every later generic heuristic and against
+    # a vision misread, whichever LLM (API or local) produced the first draft.
+    if template and template.get("final_pass") and template.get("post_process"):
+        _vh = (header_trace.get("vision_header") or {}).get("parsed_json")
+        _hints = {"vendor_header_address": _vh.get("vendor_address") if isinstance(_vh, dict) else None}
+        cleaned, final_template_notes = _run_template_post_process(template, cleaned, ocr_text, ocr_lines, _hints)
+        reconciliation_notes.extend(final_template_notes)
+        vision_issues, superseded_notes = _drop_superseded_vision_notes(
+            vision_issues, cleaned, set(template.get("pinned_fields") or ()))
+        reconciliation_notes.extend(superseded_notes)
 
     # Recover parties before trimming the vendor suffix: Dan's recovery can
     # use misplaced customer fragments as evidence for the customer address.

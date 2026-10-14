@@ -62,6 +62,11 @@ class Invoice(BaseModel):
 
     source_file: Optional[str] = None
     source_fingerprint: Optional[str] = None
+    # 1-indexed page numbers of source_file that make up this invoice (e.g. [1, 2, 3] for one
+    # invoice that spans three pages; [2] for the 2nd page of a batch scan) and the file's page count.
+    # Not persisted to the DB; used for labelling/fingerprints and reporting skipped pages.
+    source_pages: list[int] = Field(default_factory=list)
+    source_total_pages: Optional[int] = None
     # Path to the auto-cropped/perspective-corrected/contrast-enhanced
     # version of source_file (see ocr/preprocessing.py::camscan()). None
     # when the source is a PDF (camscan works on photos, not paginated

@@ -20,6 +20,11 @@
       "tin": "000-502-547-00000",
       "label": "SGV (Sycip, Gorres, Velayo & Co.)",
       "vendor_address": "6760 Ayala Avenue, San Lorenzo, NCR, Fourth District, 1226 City of Makati, Philippines"
+    },
+    {
+      "tin": "000-101-528-00000",
+      "label": "Meralco - Alabang Business Center",
+      "vendor_address": "ALABANG BUS. CENTER, PRIME ST., MUNTINLUPA"
     }
   ],
   "customers": [

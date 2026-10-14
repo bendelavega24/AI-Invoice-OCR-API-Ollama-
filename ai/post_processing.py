@@ -1405,6 +1405,66 @@ def reconcile_billing_current_period_financials(data: dict, ocr_lines: list[dict
     return out, notes
 
 
+_AXIS_TICK_RE = re.compile(r"^\s*\d{1,5}\s*$")
+
+
+def _chart_axis_tick_ids(lines: list[dict]) -> set[int]:
+    """Return ``id()`` of OCR lines that are the numeric tick labels of a chart axis.
+
+    Utility bills (e.g. a "monthly consumption" bar chart printed beside the
+    charges table) put a column of bare integers - 300, 270, 240 ... - to the
+    right of the table.  The line-item geometry backstop treats the right-most
+    number on a row as that row's amount, so those ticks silently replaced the
+    real amounts.  A value axis is recognisable by its shape rather than by any
+    vendor wording: five or more bare integers, right-aligned in one column,
+    evenly spaced vertically, and stepping by a constant amount (OCR may drop or
+    misread one tick, so a majority of constant steps is enough).  Steps below 5
+    are ignored so a row-number / quantity column (1, 2, 3 ...) is never mistaken
+    for an axis.
+    """
+    ticks = []
+    for ln in lines or []:
+        raw = str(ln.get("text") or "")
+        if not _AXIS_TICK_RE.match(raw):
+            continue
+        b = _bbox_bounds(ln.get("bbox"))
+        if b:
+            ticks.append((ln, b, int(raw.strip())))
+    if len(ticks) < 5:
+        return set()
+    heights = sorted(t[1][3] - t[1][1] for t in ticks)
+    tol = max(15.0, 0.8 * heights[len(heights) // 2])
+    ticks.sort(key=lambda t: t[1][2])  # by right edge
+    columns, current = [], [ticks[0]]
+    for t in ticks[1:]:
+        if abs(t[1][2] - current[-1][1][2]) <= tol:
+            current.append(t)
+        else:
+            columns.append(current)
+            current = [t]
+    columns.append(current)
+
+    found: set[int] = set()
+    for col in columns:
+        if len(col) < 5:
+            continue
+        col.sort(key=lambda t: (t[1][1] + t[1][3]) / 2)
+        values = [t[2] for t in col]
+        steps = [b - a for a, b in zip(values, values[1:])]
+        common, common_n = max(((s, steps.count(s)) for s in set(steps)), key=lambda x: x[1])
+        if abs(common) < 5 or common_n < max(3, (len(steps) + 1) // 2):
+            continue
+        if sum(1 for v in values if v % abs(common) == 0) < 0.8 * len(values):
+            continue
+        centers = [(t[1][1] + t[1][3]) / 2 for t in col]
+        gaps = [b - a for a, b in zip(centers, centers[1:])]
+        med = sorted(gaps)[len(gaps) // 2]
+        if med <= 0 or sum(1 for g in gaps if 0.7 * med <= g <= 1.3 * med) < 0.6 * len(gaps):
+            continue
+        found.update(id(t[0]) for t in col)
+    return found
+
+
 def reconcile_line_item_geometry(data: dict, ocr_lines: list[dict] | None) -> tuple[dict, list[str]]:
     """Correct line-item quantity/unit price/amount from OCR table geometry.
 
@@ -1422,6 +1482,8 @@ def reconcile_line_item_geometry(data: dict, ocr_lines: list[dict] | None) -> tu
     result=dict(data); out=[dict(i) for i in items]; notes=[]
     amount_header = next((l for l in lines if re.search(r"(?i)^\s*total\s+amount\s*$", str(l.get("text") or ""))), None)
     amount_header_box = _bbox_bounds(amount_header.get("bbox")) if amount_header else None
+    # Chart axis ticks / percentage cells are never a row's money amount.
+    axis_ticks = _chart_axis_tick_ids(lines)
 
     def compact(text: str) -> str:
         return re.sub(r'[^a-z0-9]+','',str(text or '').lower())
@@ -1436,17 +1498,32 @@ def reconcile_line_item_geometry(data: dict, ocr_lines: list[dict] | None) -> tu
             return None
         return to_float(raw)
 
+    def locate_description(desc: str):
+        dc=compact(desc)
+        for l in lines:
+            t=re.sub(r'\s+',' ',str(l.get('text') or '')).strip(); tc=compact(t)
+            if not t: continue
+            if t.lower()==desc.lower() or (len(desc)>8 and desc.lower() in t.lower()) or (len(dc)>=8 and (dc in tc or tc in dc) and min(len(dc),len(tc))>=8):
+                return l
+        return None
+
+    # Row anchors of every line item. In a dense table (row pitch smaller than
+    # the +/-60px search window below) a neighbouring row's amount would
+    # otherwise be picked up as this row's amount.
+    row_anchors: list[tuple[int, float, float]] = []
+    for oidx, oitem in enumerate(out):
+        odesc=re.sub(r'\s+',' ',str(oitem.get('description') or '')).strip()
+        oline=locate_description(odesc) if odesc else None
+        ob=_bbox_bounds(oline.get('bbox')) if oline else None
+        if ob:
+            row_anchors.append((oidx, (ob[1]+ob[3])/2, ob[2]))
+
     for idx,item in enumerate(out):
         desc=re.sub(r'\s+',' ',str(item.get('description') or '')).strip()
         if not desc: continue
         if desc.lower() in {'add-ons','addons','add ons'} and any('statement summary' in str(x.get('text') or '').lower() for x in lines):
             continue
-        desc_line=None; dc=compact(desc)
-        for l in lines:
-            t=re.sub(r'\s+',' ',str(l.get('text') or '')).strip(); tc=compact(t)
-            if not t: continue
-            if t.lower()==desc.lower() or (len(desc)>8 and desc.lower() in t.lower()) or (len(dc)>=8 and (dc in tc or tc in dc) and min(len(dc),len(tc))>=8):
-                desc_line=l; break
+        desc_line=locate_description(desc)
         if not desc_line: continue
         db=_bbox_bounds(desc_line.get('bbox'))
         if not db: continue
@@ -1458,7 +1535,7 @@ def reconcile_line_item_geometry(data: dict, ocr_lines: list[dict] | None) -> tu
         # not borrowed.
         qty_candidates=[]; money_candidates=[]
         for l in lines:
-            if l is desc_line: continue
+            if l is desc_line or id(l) in axis_ticks: continue
             b=_bbox_bounds(l.get('bbox'))
             if not b: continue
             cy=(b[1]+b[3])/2
@@ -1499,6 +1576,7 @@ def reconcile_line_item_geometry(data: dict, ocr_lines: list[dict] | None) -> tu
         # Original generic backstop: rightmost same-row money cell owns amount.
         candidates=[]
         for l in lines:
+            if id(l) in axis_ticks: continue
             b=_bbox_bounds(l.get('bbox'))
             if not b or b[0] <= db[2]: continue
             cy=(b[1]+b[3])/2
@@ -1506,7 +1584,14 @@ def reconcile_line_item_geometry(data: dict, ocr_lines: list[dict] | None) -> tu
             if amount_header_box and b[0] < amount_header_box[0] - 80:
                 continue
             raw_value=str(l.get('text') or '').strip()
-            if '/' in raw_value or re.fullmatch(r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}', raw_value):
+            if '/' in raw_value or '%' in raw_value or re.fullmatch(r'\d{1,2}[-/]\d{1,2}[-/]\d{2,4}', raw_value):
+                continue
+            # On a page that also carries a chart (dense charges table beside a
+            # bar chart) a cell that is clearly closer to ANOTHER item's
+            # description line (to its left) belongs to that item's row. Scoped
+            # to chart pages so layouts without one keep their existing behaviour.
+            own_dist=abs(cy-dcy)
+            if axis_ticks and any(oidx!=idx and ox2<=b[0] and abs(cy-ocy)+8<own_dist for oidx,ocy,ox2 in row_anchors):
                 continue
             v=to_float(raw_value)
             if v is None or v<=0: continue
@@ -1596,7 +1681,27 @@ def _rebuild_customer_address_from_party_block(data: dict, lines: list[dict]) ->
     return text, anchor_kind
 
 
+def _meralco_layout_guard(data: dict, ocr_lines: list[dict] | None):
+    """For a Meralco ELECTRIC BILL the seller (business-center) block and the addressee block
+    are interleaved on the page, so the generic party/address geometry assigns them wrongly
+    (vendor_address gets the addressee, customer_address gets Tel./TIN text). Use the
+    column-aware Meralco template instead. Returns (data, notes) or None when not applicable."""
+    if not ocr_lines:
+        return None
+    text = "\n".join(str(l.get("text") or "") for l in ocr_lines)
+    if not (re.search(r"(?i)meralco", str(data.get("vendor_name") or "")) and re.search(r"(?i)ELECTRIC\s*BILL", text)):
+        return None
+    try:
+        from ai.invoice_templates.meralco import normalize_meralco_extraction
+        return normalize_meralco_extraction(data, text, ocr_lines)
+    except Exception:
+        return None
+
+
 def reconcile_party_ownership_layout(data: dict, ocr_lines: list[dict] | None) -> tuple[dict, list[str]]:
+    _g = _meralco_layout_guard(data, ocr_lines)
+    if _g is not None:
+        return _g
     """Correct a vendor/customer swap using conservative page geometry.
 
     Generic ownership rule: the issuer's legal/business name is normally in
@@ -1709,6 +1814,9 @@ def reconcile_party_ownership_layout(data: dict, ocr_lines: list[dict] | None) -
 
 
 def reconcile_customer_address_layout(data: dict, ocr_lines: list[dict] | None) -> tuple[dict, list[str]]:
+    _g = _meralco_layout_guard(data, ocr_lines)
+    if _g is not None:
+        return _g
     """Rebuild customer address from explicit ADDRESS geometry or party block.
 
     1.57 adds a Bill-To/customer-name fallback for SGV/Globe-style layouts.
@@ -2787,7 +2895,12 @@ def _find_customer_tin_candidate(lines: list[str]) -> str | None:
         is_block_start = lower in CUSTOMER_LABELS or bool(_CUSTOMER_LABEL_SAMELINE_RE.match(line))
         if not is_block_start:
             continue
-        block = "\n".join(lines[i: min(len(lines), i + 8)])
+        # Lines that carry document/account identifiers (e.g. "EB Invoice No. 4230011264445" on a
+        # Meralco bill, whose "CUSTOMER TIN:" box is empty) are never a customer TIN.
+        block = "\n".join(
+            l for l in lines[i: min(len(lines), i + 8)]
+            if not re.search(r"(?i)\b(?:invoice|statement|account|service\s*id|reference|permit)\b[^\n]{0,20}(?:no\b|number|#)", l)
+        )
         for label in CUSTOMER_TIN_LABELS:
             for m in _label_pattern(label).finditer(block):
                 raw = _extract_tin_near(block, m.end())

@@ -1,0 +1,41 @@
+{
+  "template_name": "generic",
+  "ocr_lines_passed": false,
+  "ocr_lines_count": 0,
+  "meralco_template_notes": null,
+  "meralco_template_error": null,
+  "final_parsed_json": {
+    "invoice_number": "52091",
+    "invoice_date": "2026-07-22",
+    "due_date": null,
+    "vendor_name": "NORTH STAR INTERNATIONAL TRAVEL INC.",
+    "vendor_address": "19/F Trident Tower 312 Sen. Gil Puyat Avenue Bel-Air, 1209 City of Makati NCR, Fourth District Philippines",
+    "vendor_tax_id": "000-423-215-00000",
+    "customer_name": "Tsukiden Global Solutions Inc.",
+    "customer_contact": null,
+    "customer_address": "Meralco Ave. Ortigas, Unit 2102, 21st Floor, One Corporate Centre, Dona Julla Vargas Avenue comer",
+    "customer_tax_id": "007-848-122-000",
+    "plate_number": null,
+    "line_items": [
+      {
+        "description": "SERVICE FEE (TICKET)",
+        "quantity": 1.0,
+        "unit_price": 2468.0,
+        "amount": 2468.0
+      }
+    ],
+    "subtotal": 2468.0,
+    "tax_amount": 296.16,
+    "tax_rate": 12.0,
+    "discount": null,
+    "withholding_tax": null,
+    "zero_rated_sales": null,
+    "vat_exempt_sales": null,
+    "total_amount": 2764.16,
+    "current_charges_total": null,
+    "previous_balance": null,
+    "currency": "PHP",
+    "payment_terms": "30 Days",
+    "payment_status": "unknown"
+  }
+}

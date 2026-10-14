@@ -15,6 +15,13 @@ def _num(v):
     try: return float(v) if v is not None else None
     except (TypeError, ValueError): return None
 
+def _present(v):
+    if v is None or v == []:
+        return False
+    if isinstance(v, str):
+        return v.strip().lower() not in {"", "-", "--", "—", "n/a", "na", "none", "null", "not available", "not specified", "unknown", "tbd"}
+    return True
+
 def _financial_consistency(d):
     sub=_num(d.get("subtotal")); total=_num(d.get("total_amount"))
     if sub is None or total is None: return None, None
@@ -30,9 +37,11 @@ def _financial_consistency(d):
 def _line_item_consistency(d):
     checked=ok=0
     for li in d.get("line_items") or []:
-        desc=str((li or {}).get("description") or "").strip().lower()
+        if not isinstance(li, dict):
+            continue
+        desc=str(li.get("description") or "").strip().lower()
         if desc in {"remaining balance","previous balance","carried balance","balance forward"}: continue
-        q=_num((li or {}).get("quantity")); p=_num((li or {}).get("unit_price")); a=_num((li or {}).get("amount"))
+        q=_num(li.get("quantity")); p=_num(li.get("unit_price")); a=_num(li.get("amount"))
         if q is None or p is None or a is None or q<=0 or p<0 or a<0: continue
         checked+=1
         if abs(q*p-a)<=max(0.05,abs(a)*0.01): ok+=1
@@ -45,7 +54,7 @@ def score_extraction(extracted: dict, ocr_avg_confidence: float, validation_issu
     fcs=[]
     financial_fields={"subtotal","tax_amount","discount","withholding_tax","zero_rated_sales","vat_exempt_sales","current_charges_total","previous_balance","total_amount"}
     for field in fields:
-        value=extracted.get(field); present=value not in (None,"",[])
+        value=extracted.get(field); present=_present(value)
         if not present:
             fcs.append(FieldConfidence(field=field,value=value,confidence=0.0,source="missing")); continue
         conf=0.66+0.20*ocr; hit=field.lower() in issue_text
@@ -57,7 +66,7 @@ def score_extraction(extracted: dict, ocr_avg_confidence: float, validation_issu
         if field in {"invoice_number","invoice_date","vendor_name","vendor_tax_id"} and not hit: conf+=0.03
         if hit: conf*=0.58
         fcs.append(FieldConfidence(field=field,value=value,confidence=round(clamp(conf),3),source="final_evidence"))
-    required_present=sum(extracted.get(f) not in (None,"",[]) for f in REQUIRED_FIELDS)
+    required_present=sum(_present(extracted.get(f)) for f in REQUIRED_FIELDS)
     completeness=required_present/max(1,len(REQUIRED_FIELDS))
     overall=0.52+0.20*ocr+0.18*completeness
     if financial_ok is True: overall+=0.07

@@ -231,7 +231,9 @@ def _orientation_score(image_path: str) -> tuple[float, dict]:
             crop = _crop_bgr(img, bbox)
             if crop.size == 0:
                 continue
-            res = paddleocr_engine.recognize_crop(crop)
+            # cls=False on purpose: with the 180-degree classifier on, an upside-down page reads as well as an
+            # upright one, so 0 and 180 degrees score the same and a flipped page is never rotated back.
+            res = paddleocr_engine.recognize_crop(crop, cls=False)
             text = str(res.get("text") or "").strip()
             conf = float(res.get("confidence") or 0.0)
             meaningful = [c for c in text if c.isalnum()]
@@ -462,9 +464,16 @@ def extract_pages_from_file(
     image_paths = pdf_to_images(file_path)
     pages = []
     for i, img_path in enumerate(image_paths):
-        res = extract_from_image(
-            img_path, use_preprocessing=use_preprocessing, force_handwritten=force_handwritten
-        )
+        try:
+            res = extract_from_image(
+                img_path, use_preprocessing=use_preprocessing, force_handwritten=force_handwritten
+            )
+        except Exception as e:
+            # One page crashing OCR (bad render, engine error) must not discard the other pages of the
+            # file. Return an empty result carrying the error so the parser can report this page as
+            # skipped, with the reason, while still processing the rest.
+            logger.error(f"OCR failed on page {i + 1}/{len(image_paths)} of {file_path}: {e}")
+            res = {"text": "", "lines": [], "avg_confidence": 0.0, "engine": None, "ocr_error": str(e)}
         res["page_number"] = i + 1
         res["total_pages"] = len(image_paths)
         res["image_path"] = img_path
