@@ -6,6 +6,7 @@ shows only *actionable* review flags, rather than percentages on every field.
 from __future__ import annotations
 
 from html import escape
+from decimal import Decimal, InvalidOperation
 
 import pandas as pd
 
@@ -46,6 +47,25 @@ def render_field(column, label: str, field: str, value: str, evidence: dict[str,
     )
 
 
+def format_line_item_quantity(value: object) -> str:
+    """Show whole quantities without decimals, preserving true fractional values.
+
+    This changes the read-only UI only. The stored quantity and any arithmetic
+    continue using their original numeric values; nothing is rounded to an int.
+    """
+    if value is None or str(value).strip() == "":
+        return "—"
+    try:
+        number = Decimal(str(value).replace(",", "").strip())
+    except (InvalidOperation, ValueError):
+        return str(value)
+    if not number.is_finite():
+        return "—"
+    if number == 0:
+        return "0"
+    return format(number.normalize(), "f")
+
+
 LINE_ITEM_COLUMNS = {
     "description": "Item",
     "quantity": "Qty",
@@ -67,7 +87,7 @@ def line_items_review_table(line_items: list[dict], evidence: dict[str, dict]):
     for ix, item in enumerate(line_items):
         row = {
             "Item": item.get("description") or "—",
-            "Qty": item.get("quantity") if item.get("quantity") is not None else "—",
+            "Qty": format_line_item_quantity(item.get("quantity")),
             "Unit Price": f"{float(item['unit_price']):,.2f}" if item.get("unit_price") is not None else "—",
             "Total Unit Price": f"{float(item['amount']):,.2f}" if item.get("amount") is not None else "—",
         }

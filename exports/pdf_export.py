@@ -15,7 +15,7 @@ _COLUMN_WEIGHTS = {
     "ID": 0.55, "Invoice #": 0.95, "Vendor": 1.8, "Customer": 1.65, "Plate #": 0.75,
     "Invoice Date": 0.9, "Date Uploaded": 0.9, "Filename": 1.55,
     "Category": 1.0, "Vatable Sales": 0.9, "VAT-Exempt Sales": 0.9, "Zero-Rated Sales": 0.9,
-    "VAT": 0.7, "Withholding Tax": 0.9, "Current Charges Total": 1.0, "Previous Balance": 0.9,
+    "VAT": 0.7, "Withholding Tax": 0.9,
     "Total Amount Due": 1.0, "Currency": 0.65,
 }
 
@@ -31,7 +31,7 @@ def export_to_pdf(invoices: list[dict], filename: str | None = None, chart_path:
     out_path = Path(settings.EXPORT_DIR) / filename
 
     # A3 landscape + explicit fitted column widths prevents the left/right
-    # clipping seen when ReportLab auto-sized the wide 19-column table.
+    # clipping seen when ReportLab auto-sized a wide invoice table.
     doc = SimpleDocTemplate(
         str(out_path), pagesize=landscape(A3),
         leftMargin=8 * mm, rightMargin=8 * mm, topMargin=10 * mm, bottomMargin=10 * mm,

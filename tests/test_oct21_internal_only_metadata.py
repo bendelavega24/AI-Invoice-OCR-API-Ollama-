@@ -24,7 +24,7 @@ def _sample_invoice():
 
 
 def test_internal_fields_hidden_from_client_detail_and_review_notifications():
-    assert INTERNAL_ONLY_INVOICE_FIELDS == {"due_date", "tax_rate", "payment_terms"}
+    assert {"due_date", "tax_rate", "payment_terms"} <= INTERNAL_ONLY_INVOICE_FIELDS
     assert not any(field in INTERNAL_ONLY_INVOICE_FIELDS for _, field in HISTORY_SECONDARY_FIELDS)
     evidence = {
         "vendor_address": {"status": "review", "warning": "Check address"},

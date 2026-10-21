@@ -57,7 +57,7 @@ Confidence remains saved per field and line-item cell, but percentages are hidde
 
 The History details panel now displays `0.00` for **unextracted** values in Vatable Sales, VAT-Exempt Sales, Zero-Rated Sales, VAT, Withholding Tax, and Total Amount Due. This is a **display placeholder**, not an actual extracted zero: missing amounts remain `NULL` in SQLite so validation, search, and review can distinguish them from explicitly recorded zeros. A single small explanatory note appears when any of those values was unextracted, and missing Total Amount Due continues to raise a review warning. Opening an invoice in Edit and saving without changing an optional zero does not replace a missing value with a stored zero.
 
-Due Date, Tax Rate, and Payment Terms are optional document fields. Due Date supports payment scheduling, Tax Rate can aid tax review where applicable, and Payment Terms records conditions such as Cash/Net 30. They are only displayed when available and are not required for invoice acceptance.
+Due Date, Tax Rate, and Payment Terms are optional document fields. Due Date supports payment scheduling, Tax Rate can aid tax review where applicable, and Payment Terms records conditions such as Cash/Net 30. They are retained internally and are not required for invoice acceptance. They are not displayed in client invoice details or reports.
 
 ### Client-facing invoice fields
 
@@ -66,3 +66,37 @@ invoice detail (or its edit form), nor included in generated invoice CSV,
 Excel or PDF reports and print previews. These optional values remain in the
 internal database/extraction/validation pipeline for backward compatibility.
 Do not interpret this visibility change as deletion of existing stored data.
+
+## October 21, 2026 — approved History detail fields
+
+The **History invoice detail heading uses the uploaded filename** (for example,
+`INV-39.png`), with invoice number or internal record ID used only as a fallback
+when the filename is unavailable. The filename is no longer repeated among the
+detail fields. **Invoice #** remains in the approved details exactly once. The
+edit-screen heading follows the same filename-first convention.
+
+Only these client-approved fields are shown in the History detail panel:
+
+- **Document details:** Vendor, Vendor Address, Vendor TIN, Customer,
+  Customer Address, Customer TIN, Plate # (when present), Invoice #,
+  Invoice Date, Date Uploaded, Category.
+- **Financial and state details:** Vatable Sales, VAT-Exempt Sales,
+  Zero-Rated Sales, VAT, Withholding Tax, Total Amount Due, Currency,
+  Status, Locked.
+
+**Customer Contact, Current Charges and Previous Balance are hidden as
+standalone summary fields**, as are Due Date, Tax Rate and Payment Terms.
+These values remain stored internally and available to the validation
+pipeline. They are omitted from CSV, Excel, PDF and print-report export
+columns. Existing *genuine extracted line items* named Current Charges or
+Previous Balance still appear in the line-item table, but the system does not
+add synthetic line items from the summary fields (which could double-count
+statement totals). Confidence review highlights and financial validation
+warnings remain available for the approved fields.
+
+Reports still include the existing technical **ID** and **Filename** columns
+for record traceability; this History-only heading change does not alter those
+identifiers in report exports. The History page never repeats Filename as a
+detail field.
+
+**Line-item quantity display:** In History, whole quantities are shown without trailing decimal places; fractional quantities are preserved when present (for example, 1 and 0.75). This is display-only and does not modify quantities stored or used in calculations.

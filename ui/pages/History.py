@@ -9,7 +9,10 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 from config.constants import CATEGORY_OPTIONS
-from config.field_visibility import HISTORY_SECONDARY_FIELDS, visible_field_evidence, visible_validation_issues
+from config.field_visibility import (
+    HISTORY_SECONDARY_FIELDS, history_invoice_title, approved_history_document_rows,
+    visible_field_evidence, visible_validation_issues,
+)
 from database.repository import DuplicateInvoiceError, InvoiceLockedError
 from services.invoice_service import (
     list_invoices, get_invoice, update_invoice, lock_invoice, unlock_invoice, delete_invoice,
@@ -224,9 +227,8 @@ def render_edit_form(inv: dict):
             st.rerun()
         return
 
-    st.subheader(f"✏️ Editing Invoice {inv.get('invoice_number') or inv['id']}")
+    st.subheader(f"✏️ Editing {history_invoice_title(inv)}")
     st.caption(
-        f"Invoice ID {inv['id']} · Filename: {inv.get('original_filename') or '—'}\n\n"
         "Correct any fields the OCR/extraction got wrong — useful for invoices "
         "with misaligned labels/values or blurred scans."
     )
@@ -406,7 +408,7 @@ def render_edit_form(inv: dict):
             key=f"line_items_editor_{inv['id']}",
             column_config={
                 "Description": st.column_config.TextColumn("Description"),
-                "Quantity": st.column_config.NumberColumn("Quantity", min_value=0.0, step=1.0, format="%.2f"),
+                "Quantity": st.column_config.NumberColumn("Quantity", min_value=0.0, step=1.0, format="%.15g"),
                 "Unit Price": st.column_config.NumberColumn("Unit Price", min_value=0.0, step=0.01, format="%.2f"),
                 "Total Unit Price": st.column_config.NumberColumn("Total Unit Price", min_value=0.0, step=0.01, format="%.2f"),
             },
@@ -816,28 +818,15 @@ if invoices:
         if editing_id == selected_id:
             render_edit_form(detail)
         else:
-            st.subheader(f"Invoice {detail['invoice_number']}")
+            st.subheader(history_invoice_title(detail))
             c1, c2 = st.columns(2)
             # Confidence remains internal. Show only actionable verification flags.
             evidence, historic_estimate = evidence_for_invoice(detail)
             evidence = visible_field_evidence(evidence)
             # Historic evidence limitations are explained only inside the
             # optional review-details expander instead of occupying header space.
-            render_field(c1, "Vendor", "vendor_name", detail.get("vendor_name") or "-", evidence)
-            render_field(c1, "Vendor Address", "vendor_address", detail.get("vendor_address") or "-", evidence)
-            render_field(c1, "Vendor TIN", "vendor_tax_id", detail.get("vendor_tax_id") or "-", evidence)
-            for label, field in (("Customer", "customer_name"),
-                                 ("Customer Address", "customer_address"),
-                                 ("Customer TIN", "customer_tax_id"),
-                                 ("Plate #", "plate_number")):
-                value = str(detail.get(field) or "").strip()
-                if value and value not in ("-", "—"):
-                    render_field(c1, label, field, value, evidence)
-            render_field(c1, "Invoice #", "invoice_number", str(detail.get("invoice_number") or "-"), evidence)
-            render_field(c1, "Invoice Date", "invoice_date", str(detail.get("invoice_date") or "-"), evidence)
-            c1.write(f"**Date Uploaded:** {detail.get('date_uploaded') or (detail.get('created_at') or '')[:10] or '-'}")
-            c1.write(f"**Filename:** {detail.get('original_filename') or '-'}")
-            render_field(c1, "Category", "category", str(detail.get("category") or "-"), evidence)
+            for label, field, value in approved_history_document_rows(detail):
+                render_field(c1, label, field, value, evidence)
             currency = detail.get("currency") or ""
             # A missing amount appears as 0.00 *only in the detail display*;
             # preserve None in SQLite for validation, review, and later edits.
@@ -846,8 +835,10 @@ if invoices:
             if has_unextracted_amount(detail):
                 c2.caption("ⓘ A displayed 0.00 may mean the amount was not extracted; "
                            "it does not confirm that the source invoice says zero.")
-            # Only client-approved optional fields are displayed here. Due Date,
-            # Tax Rate and Payment Terms remain stored for internal use.
+            # Only Currency is an approved summary field here. Extra billing
+            # metadata (customer contact, current charges, previous balance,
+            # due date, tax rate, terms) remains internal and may still inform
+            # validation or genuine rows in the purchased-items table.
             for label, key in HISTORY_SECONDARY_FIELDS:
                 value = detail.get(key)
                 if value is not None and value != "":

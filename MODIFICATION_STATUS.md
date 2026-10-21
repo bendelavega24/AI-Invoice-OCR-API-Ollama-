@@ -110,3 +110,42 @@ Base: `AI-Invoice-OCR-API-Ollama-Dan_QA_ReviewHighlights_2026-10-21.zip`.
 - Preserve SQLite schema and stored values, extraction and validation logic,
   and any historical invoice records. Do not silently overwrite existing data.
 - Add regression checks for UI visibility policy and each invoice export format.
+
+## October 21, 2026 — client-approved History fields and filename heading
+
+Base: `AI-Invoice-OCR-API-Ollama-Dan_QA_HideOptionalFields_2026-10-21.zip`.
+
+- The History title is now the source **Filename**; Invoice # appears only in
+  the details, not twice as both a title and a field. A filename-free record
+  falls back to Invoice # or internal record ID. The Edit form also titles
+  itself by filename, without repeating the filename in its caption.
+- The History left column contains exactly the approved document labels:
+  Vendor, Vendor Address, Vendor TIN, Customer, Customer Address,
+  Customer TIN, Plate #, Invoice #, Invoice Date, Date Uploaded, Category.
+  Optional customer/plate fields can remain hidden when not supplied.
+- The right column contains Vatable Sales, VAT-Exempt Sales, Zero-Rated Sales,
+  VAT, Withholding Tax, Total Amount Due, Currency, Status and Locked.
+  These remain as before, with 0.00 placeholders and actionable amber review
+  highlights; confidence scores remain internal.
+- Customer Contact, Current Charges and Previous Balance join Due Date,
+  Tax Rate and Payment Terms as internal-only standalone metadata. They are
+  removed from client-facing History summaries, associated field-evidence
+  highlights and CSV/Excel/PDF/print exports, but retained unchanged in SQLite
+  and reconciliation/validation logic. Genuine extracted line items named
+  Current Charges or Previous Balance remain in the Items purchased table.
+  Do not synthesize duplicate line items from existing summary amounts.
+- Source records, line-item values, account balances, extraction prompts,
+  OCR behavior, and confidence calculations are unchanged.
+- Report export retains existing technical ID/Filename reference columns.
+- **Testing:** 8 new regression cases passed; focused verification 19 passed.
+  Full test suite: **410 passed, 9 failed**. The nine failures are unchanged
+  known discrepancies involving provider request/retry payload expectations
+  (six) and legacy multi-invoice PDF import behavior (three), which conflicts
+  with the current one-invoice-per-file policy. No live browser/API test was
+  performed.
+
+## October 21, 2026 — clean Qty display in line items
+
+- The History line-items Qty column now shows whole amounts without trailing decimal digits (e.g., `1` instead of `1.000000`). Genuine fractional quantities such as `0.5` and `1.25` remain visible and are not rounded.
+- The editable quantity column also uses variable precision rather than forcing two decimals. Stored quantities, calculations, OCR, evidence and exports are unchanged.
+- New regression tests cover whole/fractional/missing quantities and keep verification-cell highlighting.
