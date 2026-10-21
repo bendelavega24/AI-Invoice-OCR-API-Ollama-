@@ -1,6 +1,6 @@
 # Scanner input, selected logs, and report printing
 
-This update builds on AI-Invoice-OCR_merged1.70_modByDan_fixes_login_reset_parking.zip. Login and extraction corrections are preserved.
+This guide applies to the API/Ollama application version 6.
 
 ## Update safely
 
@@ -13,8 +13,8 @@ Stop the app and back up your current installation. Extract this ZIP into a new 
 3. Open NAPS2 and test a scan using the TWAIN driver. Resolve driver/device issues there first. Close NAPS2 before scanning in AI Invoice OCR.
 4. Start AI Invoice OCR in your normal Windows desktop session on the PC connected to the scanner.
 5. On Upload choose **Scan invoice**, select **TWAIN**, and click **Find / refresh scanners**. Select the Canon, choose paper size/color, and start with 300 DPI.
-6. Put a page on the glass and click **Scan page**. Preview it; discard it and rescan if necessary. Repeat for additional pages (up to 20 per batch, within the upload size limit).
-7. Choose **Separate invoices** for unrelated receipts or **One multi-page PDF** for pages belonging together. Click **Process scanned invoices**. This uses the same local storage, OCR, duplicate checks, and result display as uploaded files.
+6. Put **one invoice** on the scanner glass and scan it. Scan more pages only if they belong to the **same invoice**. Do not batch separate invoices together.
+7. Preview the scans, discard unreadable pages and choose **Process scanned invoice**. Upload separate invoices individually. Multi-invoice scans or files are not supported because they increase processing time and lower extraction accuracy.
 
 Scans awaiting processing are held in your current session and cleared by logout. A refresh may discard pending scans. Temporary scan files are removed after acquisition. Processed originals are saved through the normal upload pipeline. No automatic OCR is run by NAPS2.
 

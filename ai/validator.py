@@ -176,7 +176,11 @@ def validate_extraction(
         if total_f is None:
             issues.append("total_amount must be a finite numeric value")
         elif total_f < 0:
-            issues.append("total_amount cannot be negative")
+            issues.append(
+                "Total Amount Due is negative. The document may be showing a credit or overpayment, "
+                "but the payable total must be checked against the previous balance, payments and "
+                "current charges before approval; do not treat it as a confirmed amount to pay."
+            )
 
     if total_f is not None and data.get("tax_amount") is not None:
         tax_f = _finite_number(data.get("tax_amount"))
@@ -231,6 +235,8 @@ def validate_extraction(
     # populated look like its numbers "don't add up".
     zero_rated = data.get("zero_rated_sales") or 0
     vat_exempt = data.get("vat_exempt_sales") or 0
+    # Use a fixed five-cent rounding tolerance, not five percent: percentage
+    # tolerances silently accept material errors in small bills and receipts.
     # 1.55: billing statements may carry a previous balance. Validate current-period
     # accounting against current_charges_total, then separately check that the
     # payable total includes the carried balance. Ordinary invoices still use
@@ -242,7 +248,7 @@ def validate_extraction(
         try:
             computed = float(subtotal) + float(tax) + float(zero_rated) + float(vat_exempt) - float(discount) - float(withholding_tax)
             target_f = float(accounting_target)
-            if target_f and abs(computed - target_f) > 0.05 * abs(target_f):
+            if abs(computed - target_f) > 0.05:
                 target_name = "current_charges_total" if current_charges_total is not None else "total_amount"
                 issues.append(
                     f"subtotal ({subtotal}) + tax ({tax}) + zero-rated ({zero_rated}) "
@@ -253,10 +259,12 @@ def validate_extraction(
             # balance stays in previous_balance, so this identity does not apply.
             if template_name != "meralco" and current_charges_total is not None and previous_balance is not None and total is not None:
                 payable = round(float(current_charges_total) + float(previous_balance), 2)
-                if abs(payable - float(total)) > 0.05 * max(abs(float(total)), 1.0):
+                if abs(payable - float(total)) > 0.05:
                     issues.append(
-                        f"current_charges_total ({current_charges_total}) + previous_balance ({previous_balance}) "
-                        f"= {payable:.2f}, which does not match total_amount/Amount to Pay ({total})"
+                        f"Total Amount Due calculation needs review: current_charges_total ({current_charges_total}) "
+                        f"+ previous_balance ({previous_balance}) = {payable:.2f}, "
+                        f"which does not match total_amount/Amount to Pay ({total}). "
+                        "This may require additional payments/credits not yet extracted; confirm against the document."
                     )
         except (TypeError, ValueError):
             issues.append("subtotal/tax/deductions are not numeric")
@@ -380,7 +388,11 @@ def validate_extraction(
                 if numeric_value is None:
                     issues.append(f"line item '{desc or index}' has non-finite or non-numeric {amount_field}: {value}")
                 elif numeric_value < 0:
-                    issues.append(f"line item '{desc or index}' has negative {amount_field}: {value}")
+                    # A printed credit/adjustment or carried credit balance is
+                    # legitimately negative, unlike merchandise qty/price.
+                    credit = re.search(r"(?i)\b(?:adjustments?|credits?|remaining balance|previous balance|balance forward)\b", desc)
+                    if not (credit and amount_field in ("amount", "unit_price")):
+                        issues.append(f"line item '{desc or index}' has negative {amount_field}: {value}")
             if _BARE_NUMBER_DESCRIPTION_RE.match(desc):
                 issues.append(
                     f"line item description '{desc}' is just a number/code, not a product "

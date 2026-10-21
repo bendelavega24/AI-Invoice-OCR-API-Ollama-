@@ -69,7 +69,7 @@ def _ensure_new_columns():
 
     new_columns = {
         "invoices": [
-            ("vision_notes", "TEXT"), ("enhanced_image_path", "TEXT"),
+            ("vision_notes", "TEXT"), ("validation_issues", "TEXT"), ("field_evidence", "TEXT"), ("enhanced_image_path", "TEXT"),
             ("date_uploaded", "DATE"),
             ("vendor_address", "TEXT"), ("vendor_tax_id", "TEXT"),
             ("customer_contact", "TEXT"), ("customer_address", "TEXT"), ("customer_tax_id", "TEXT"),
@@ -152,7 +152,7 @@ def _relax_invoice_number_constraint_if_needed():
                     current_charges_total FLOAT, previous_balance FLOAT, currency VARCHAR,
                     payment_terms VARCHAR, category VARCHAR NOT NULL DEFAULT 'Others',
                     source_file VARCHAR, source_fingerprint VARCHAR, enhanced_image_path VARCHAR, original_filename VARCHAR,
-                    ocr_engine_used VARCHAR, confidence_score FLOAT, status VARCHAR, raw_text TEXT, vision_notes TEXT,
+                    ocr_engine_used VARCHAR, confidence_score FLOAT, field_evidence TEXT, status VARCHAR, raw_text TEXT, vision_notes TEXT, validation_issues TEXT,
                     locked BOOLEAN NOT NULL DEFAULT 0, created_at DATETIME
                 )
             """)
@@ -163,7 +163,7 @@ def _relax_invoice_number_constraint_if_needed():
                 "plate_number", "subtotal", "tax_amount", "tax_rate", "discount", "withholding_tax", "zero_rated_sales",
                 "vat_exempt_sales", "total_amount", "current_charges_total", "previous_balance", "currency", "payment_terms",
                 "category", "source_file", "source_fingerprint", "enhanced_image_path", "original_filename",
-                "ocr_engine_used", "confidence_score", "status", "raw_text", "vision_notes", "locked", "created_at",
+                "ocr_engine_used", "confidence_score", "field_evidence", "status", "raw_text", "vision_notes", "validation_issues", "locked", "created_at",
             ]
             common = [c for c in target_cols if c in old_cols]
             cols = ", ".join(common)

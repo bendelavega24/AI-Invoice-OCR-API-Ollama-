@@ -81,6 +81,7 @@ class InvoiceORM(Base):
     original_filename = Column(String, nullable=True)
     ocr_engine_used = Column(String, nullable=True)
     confidence_score = Column(Float, nullable=True)
+    field_evidence = Column(Text, nullable=True)  # JSON map; legacy rows may be empty
     status = Column(String, default="pending")
     raw_text = Column(Text, nullable=True)
     # Notes from ai/vision_verifier.py's independent image cross-check —
@@ -89,6 +90,7 @@ class InvoiceORM(Base):
     # verification is disabled, found nothing, or wasn't run for this
     # invoice (e.g. it predates the feature).
     vision_notes = Column(Text, nullable=True)
+    validation_issues = Column(Text, nullable=True)  # JSON list of unresolved extraction checks
     locked = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime, default=datetime.utcnow)

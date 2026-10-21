@@ -11,14 +11,25 @@ def spend_by_vendor(limit: int = 500) -> dict:
     return dict(sorted(totals.items(), key=lambda kv: kv[1], reverse=True))
 
 
-def spend_by_month(limit: int = 500) -> dict:
+def spend_by_month(limit: int = 500, date_basis: str = "invoice") -> dict:
+    """Group by the actual invoice month (or explicitly selected upload month).
+
+    A single upload day often contains old invoices from several years. The
+    previous implementation grouped only by date_uploaded and therefore
+    created one point for the entire batch, which a line chart cannot draw.
+    """
     invoices = list_invoices(limit=limit)
     totals = defaultdict(float)
     for inv in invoices:
-        date_str = inv.get("date_uploaded") or (inv.get("created_at") or "")[:10]
+        if date_basis == "uploaded":
+            date_str = inv.get("date_uploaded") or (inv.get("created_at") or "")[:10]
+        else:
+            date_str = inv.get("invoice_date")
         if not date_str:
             continue
-        month_key = date_str[:7]  # YYYY-MM
+        month_key = str(date_str)[:7]
+        if not __import__('re').fullmatch(r"\d{4}-(?:0[1-9]|1[0-2])", month_key):
+            continue
         totals[month_key] += inv.get("total_amount") or 0
     return dict(sorted(totals.items()))
 

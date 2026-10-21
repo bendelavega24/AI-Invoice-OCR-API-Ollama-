@@ -14,6 +14,7 @@ class FieldConfidence(BaseModel):
 class Prediction(BaseModel):
     raw_json: dict
     field_confidences: list[FieldConfidence] = []
+    field_evidence: dict[str, dict] = {}
     overall_confidence: float = 0.0
     needs_review: bool = False
     warnings: list[str] = []

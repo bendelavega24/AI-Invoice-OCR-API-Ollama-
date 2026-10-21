@@ -77,9 +77,12 @@ class Invoice(BaseModel):
     original_filename: Optional[str] = None
     ocr_engine_used: Optional[str] = None
     confidence_score: Optional[float] = None
+    # Per-extracted-field/cell OCR evidence and validation warnings.
+    field_evidence: dict[str, dict] = Field(default_factory=dict)
     status: str = "pending"
     raw_text: Optional[str] = None
     vision_notes: Optional[str] = None
+    validation_issues: list[str] = Field(default_factory=list)
     locked: bool = False
 
     class Config:

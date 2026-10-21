@@ -36,6 +36,8 @@ from utils.invoice_template_detector import detect_invoice_template
 from ai.invoice_templates import get_template
 from ai.diagnostics import save_diagnostic_trace
 from ai.address_ownership import enforce_seller_address_boundary
+from ai.structured_table_recovery import reconcile_explicit_item_table, reconcile_explicit_zero_rows
+from ai.statement_qa_recovery import reconcile_statement_evidence, reconcile_electricity_charge_table, reconcile_tax_total_identity, reconcile_credit_balance_sign
 from ai.evidence_corrections import (reconcile_visible_fields, reconcile_statement_plan_item,
                                      reconcile_split_retail_price, clear_blank_party_fields, keep_first_vendor_address)
 
@@ -878,16 +880,35 @@ def _build_invoice_from_ocr(
     cleaned, first_address_notes = keep_first_vendor_address(cleaned)
     reconciliation_notes.extend(blank_party_notes + first_address_notes)
 
+    # The final explicit retail-table pass uses a whole-row sequential OCR
+    # reconstruction rather than broad XY searches that borrow neighboring prices.
+    cleaned, structured_item_notes = reconcile_explicit_item_table(cleaned, ocr_text)
+    reconciliation_notes.extend(structured_item_notes)
+    cleaned, explicit_zero_notes = reconcile_explicit_zero_rows(cleaned, ocr_text)
+    reconciliation_notes.extend(explicit_zero_notes)
+    cleaned, electric_notes = reconcile_electricity_charge_table(cleaned, ocr_text)
+    cleaned, stmt_notes = reconcile_statement_evidence(cleaned, ocr_text)
+    cleaned, credit_notes = reconcile_credit_balance_sign(cleaned, ocr_text)
+    cleaned, tax_note = reconcile_tax_total_identity(cleaned, ocr_text)
+    reconciliation_notes.extend(electric_notes + stmt_notes + credit_notes + tax_note)
+
     # 5. Validate + score FINAL information confidence. Successful
     # reconciliation notes are provenance, not unresolved correctness defects.
     unresolved_validation_issues = validate_extraction(cleaned, template_name=template_name, ocr_text=ocr_text)
+    # Some evidence recoveries intentionally leave an illegible field blank.
+    # Surface those specific review requirements rather than burying them as
+    # purely informational reconciliation provenance in the debug trace.
+    unresolved_validation_issues.extend(
+        n.removeprefix("VALIDATION: ") for n in reconciliation_notes
+        if str(n).startswith("VALIDATION: ")
+    )
     availability = verification_summary(vision_trace)
     vision_trace["verification_availability"] = availability
     unavailable_note = verification_warning(availability)
     if unavailable_note:
         unresolved_validation_issues.append(unavailable_note)
         vision_issues.append(unavailable_note)
-    prediction = score_extraction(cleaned, ocr_confidence, unresolved_validation_issues, ocr_engine=ocr_engine)
+    prediction = score_extraction(cleaned, ocr_confidence, unresolved_validation_issues, ocr_engine=ocr_engine, ocr_text=ocr_text, ocr_lines=ocr_lines)
     issues = unresolved_validation_issues + reconciliation_notes + vision_issues
 
     # 6. Build Invoice model. Sanitize placeholders now (not earlier) so
@@ -904,8 +925,10 @@ def _build_invoice_from_ocr(
     invoice.source_file = file_path
     invoice.ocr_engine_used = ocr_engine
     invoice.confidence_score = prediction.overall_confidence
+    invoice.field_evidence = prediction.field_evidence
     invoice.raw_text = ocr_text
     invoice.vision_notes = "\n".join(vision_issues) if vision_issues else None
+    invoice.validation_issues = list(unresolved_validation_issues)
     invoice.status = INVOICE_STATUS_REVIEW if prediction.needs_review else INVOICE_STATUS_PROCESSED
 
     stages["timing_seconds"].update({

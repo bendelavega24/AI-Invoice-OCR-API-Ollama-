@@ -1,13 +1,14 @@
 """Shared row/column definition for invoice exports.
 
-All export formats use the same invoice-level columns. Review-only UI state
+All export formats use the same invoice-level columns. Due Date, Tax Rate and
+Payment Terms are internal-only metadata, not columns in client exports. Review-only UI state
 (Status / Locked), hidden Discount, and Items Purchased / Line Items are not
 part of generated export files.
 """
 from datetime import datetime
 
 EXPORT_COLUMNS = [
-    "ID", "Invoice #", "Vendor", "Customer", "Plate #", "Invoice Date", "Date Uploaded", "Due Date", "Filename",
+    "ID", "Invoice #", "Vendor", "Customer", "Plate #", "Invoice Date", "Date Uploaded", "Filename",
     "Category", "Vatable Sales", "VAT-Exempt Sales", "Zero-Rated Sales", "VAT", "Withholding Tax",
     "Current Charges Total", "Previous Balance", "Total Amount Due", "Currency",
 ]
@@ -44,7 +45,6 @@ def invoice_export_row(inv: dict) -> dict:
         "Plate #": inv.get("plate_number") or "-",
         "Invoice Date": inv.get("invoice_date") or "-",
         "Date Uploaded": inv.get("date_uploaded") or (inv.get("created_at") or "")[:10] or "-",
-        "Due Date": inv.get("due_date") or "-",
         "Filename": inv.get("original_filename") or "-",
         "Category": inv.get("category") or "-",
         "Vatable Sales": inv.get("subtotal") or 0,

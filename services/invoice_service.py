@@ -11,6 +11,7 @@ from database.models import InvoiceORM
 from parser.invoice_parser import parse_invoice_pages_detailed, InvoiceParsingError
 from utils.file_utils import move_to_processed, sanitize_filename_component, file_hash
 from ai.post_processing import has_transaction_evidence
+from ai.field_evidence import mark_user_changes, build_field_evidence
 from utils.categorizer import auto_categorize
 from services.audit_service import log_action
 
@@ -169,6 +170,8 @@ def _quality_warnings(invoice) -> list[str]:
         warnings.append("Invoice/transaction date is not specified on the document.")
     if getattr(invoice, "total_amount", None) is None:
         warnings.append("No total amount is stated/extracted; verify the amount with the vendor before payment.")
+    if not getattr(invoice, "vendor_address", None):
+        warnings.append("Vendor address was not readable or verified; check the source image before approval.")
     if (getattr(invoice, "vendor_name", None) or "").strip().upper() == "UNKNOWN VENDOR":
         warnings.append("Vendor name is not specified or could not be verified.")
     return warnings
@@ -217,6 +220,16 @@ def process_invoice_file(
             {"success": False, "error": "No invoice could be extracted from the file.", "file": base_filename}
         ]
 
+    # One invoice per uploaded file is a deliberate safety constraint. A PDF
+    # containing separate invoices must be split by the user and resubmitted.
+    # Check BEFORE saving any record to avoid partial batch imports.
+    if len(invoices) > 1:
+        return [{"success": False, "file": base_filename, "error": (
+            "Multiple invoices were detected in one file. No invoices were saved. "
+            "Upload each invoice as a separate file. A multi-page invoice is permitted "
+            "only when its pages are recognized as belonging to that same invoice."
+        )}]
+
     # Enhance BEFORE move_to_processed() relocates file_path further down —
     # camscan() needs to read the file from its current location. Only
     # meaningful for a standalone photo (see _generate_enhanced_image);
@@ -246,7 +259,7 @@ def process_invoice_file(
             # must not enter History merely because it has printed boilerplate.
             if not has_transaction_evidence(invoice):
                 results.append({
-                    "success": False,
+                    "success": False, "rejected_document": True,
                     "invoice_number": invoice.invoice_number,
                     "file": invoice.original_filename,
                     "error": (
@@ -320,8 +333,10 @@ def process_invoice_file(
                 "previous_balance": invoice.previous_balance,
                 "currency": invoice.currency,
                 "quality_warnings": quality_warnings,
+                "validation_issues": invoice.validation_issues,
                 "category": invoice.category,
                 "confidence_score": invoice.confidence_score,
+                "field_evidence": invoice.field_evidence,
                 "status": invoice.status,
                 "ocr_engine_used": invoice.ocr_engine_used,
                 "vision_notes": invoice.vision_notes,
@@ -417,7 +432,19 @@ def update_invoice(invoice_id: int, updates: dict, audit: bool = True) -> dict:
         before = _orm_to_dict(before_row)
         submitted_fields = list(updates.keys())
 
-        row = repo.update(invoice_id, updates)
+        # Mark edited fields and individual edited item cells as user-corrected,
+        # rather than displaying a stale OCR-derived confidence next to them.
+        stored = before.get("field_evidence") or {}
+        if not stored and before.get("raw_text"):
+            # Legacy invoices never stored field evidence. Reconstruct from
+            # archived OCR, rather than losing indicators after first edit.
+            stored = build_field_evidence(before, before.get("raw_text"),
+                                          validation_issues=before.get("validation_issues") or [],
+                                          ocr_engine=before.get("ocr_engine_used"))
+            for meta in stored.values():
+                meta["historic_ocr_only"] = True
+        changes_for_evidence = mark_user_changes(before, updates, stored)
+        row = repo.update(invoice_id, {**updates, "field_evidence": changes_for_evidence})
         if row is None:
             raise ValueError(f"Invoice {invoice_id} not found")
         result = _orm_to_dict(row)
@@ -612,9 +639,11 @@ def _orm_to_dict(row) -> dict:
         "status": row.status,
         "locked": row.locked,
         "confidence_score": row.confidence_score,
+        "field_evidence": json.loads(row.field_evidence) if row.field_evidence else {},
         "ocr_engine_used": row.ocr_engine_used,
         "raw_text": row.raw_text,
         "vision_notes": row.vision_notes,
+        "validation_issues": json.loads(row.validation_issues) if row.validation_issues else [],
         "line_items": [
             {"description": li.description, "quantity": li.quantity, "unit_price": li.unit_price, "amount": li.amount}
             for li in row.line_items

@@ -42,9 +42,15 @@ else:
     st.info("No data yet — upload some invoices first.")
 
 st.subheader("Spend by Month")
-month_totals = spend_by_month()
+month_basis = st.radio(
+    "Month is based on", ["Invoice date", "Upload date"],
+    index=0, horizontal=True, key="dashboard_month_basis",
+)
+month_totals = spend_by_month(date_basis="invoice" if month_basis == "Invoice date" else "uploaded")
 if month_totals:
     df = pd.DataFrame(list(month_totals.items()), columns=["Month", "Total"])
-    st.line_chart(df.set_index("Month"))
+    # A bar chart is meaningful even when all uploaded records fall in ONE month.
+    st.bar_chart(df.set_index("Month"))
+    st.caption(f"{len(month_totals)} month(s) with recorded dates. Only invoices with a valid selected date are included.")
 else:
-    st.info("No data yet — upload some invoices first.")
+    st.info("No invoices with a valid date for the selected month basis.")

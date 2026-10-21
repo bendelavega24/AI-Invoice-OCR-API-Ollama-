@@ -5,6 +5,7 @@ raw OCR quality alone. Successful reconciliation notes are not penalties.
 """
 from __future__ import annotations
 from config.constants import REQUIRED_FIELDS
+from ai.field_evidence import build_field_evidence
 from config.settings import settings
 from models.prediction import Prediction, FieldConfidence
 from utils.helpers import clamp
@@ -47,7 +48,7 @@ def _line_item_consistency(d):
         if abs(q*p-a)<=max(0.05,abs(a)*0.01): ok+=1
     return None if not checked else ok==checked
 
-def score_extraction(extracted: dict, ocr_avg_confidence: float, validation_issues: list[str], ocr_engine: str | None=None) -> Prediction:
+def score_extraction(extracted: dict, ocr_avg_confidence: float, validation_issues: list[str], ocr_engine: str | None=None, *, ocr_text: str = "", ocr_lines: list[dict] | None = None) -> Prediction:
     ocr=clamp(float(ocr_avg_confidence or 0.0)); issue_text=" ".join(str(x).lower() for x in validation_issues)
     financial_ok,billing_ok=_financial_consistency(extracted); items_ok=_line_item_consistency(extracted)
     fields=list(dict.fromkeys(REQUIRED_FIELDS+["vendor_tax_id","customer_name","customer_address","subtotal","tax_amount","discount","withholding_tax","zero_rated_sales","vat_exempt_sales","current_charges_total","previous_balance"]))
@@ -86,4 +87,16 @@ def score_extraction(extracted: dict, ocr_avg_confidence: float, validation_issu
         overall -= 0.25 if engine_tags == {"trocr"} else 0.08
     overall=clamp(overall)
     needs_review=overall<settings.CONFIDENCE_THRESHOLD or bool(validation_issues) or handwriting_used
-    return Prediction(raw_json=extracted,field_confidences=fcs,overall_confidence=round(overall,3),needs_review=needs_review,warnings=validation_issues)
+    # Field support scores are deliberately separate from the legacy overall
+    # invoice score. Each cell gets a traceable OCR/source reason and warning.
+    evidence = build_field_evidence(extracted, ocr_text, ocr_lines, validation_issues, ocr_engine)
+    def _field_value(path):
+        if not path.startswith("line_items."):
+            return extracted.get(path)
+        _, index, key = path.split(".")
+        return (extracted.get("line_items") or [])[int(index)].get(key)
+    fcs = [FieldConfidence(field=path, value=_field_value(path),
+                           confidence=meta["score"] if meta["score"] is not None else 0.0,
+                           source=meta["source"])
+           for path, meta in evidence.items()]
+    return Prediction(raw_json=extracted,field_confidences=fcs,overall_confidence=round(overall,3),needs_review=needs_review,warnings=validation_issues,field_evidence=evidence)

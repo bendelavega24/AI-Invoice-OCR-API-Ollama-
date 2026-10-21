@@ -9,6 +9,7 @@ import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
 from config.constants import CATEGORY_OPTIONS
+from config.field_visibility import HISTORY_SECONDARY_FIELDS, visible_field_evidence, visible_validation_issues
 from database.repository import DuplicateInvoiceError, InvoiceLockedError
 from services.invoice_service import (
     list_invoices, get_invoice, update_invoice, lock_invoice, unlock_invoice, delete_invoice,
@@ -16,6 +17,8 @@ from services.invoice_service import (
 )
 from ui.components.nav import render_nav, guard_locked_navigation
 from ui.components.ai_search import render_ai_search
+from ui.components.field_evidence import evidence_for_invoice, render_field, line_items_review_table, needs_verification
+from ui.components.financial_display import HISTORY_FINANCIAL_FIELDS, format_history_amount, has_unextracted_amount
 from services.search_service import apply_search_plan
 from utils.file_utils import resolve_source_file
 from utils.pdf_utils import pdf_to_images
@@ -228,45 +231,68 @@ def render_edit_form(inv: dict):
         "with misaligned labels/values or blurred scans."
     )
 
+    evidence, historic_estimate = evidence_for_invoice(inv)
+    evidence = visible_field_evidence(evidence)
+    def edit_hint(field: str):
+        meta = evidence.get(field) or {}
+        if meta.get("warning"):
+            st.caption(f"⚠️ {meta['warning']}")
+
     main_col, image_col = st.columns([2, 1])
 
     with main_col:
         invoice_number = st.text_input("Invoice #", value=inv.get("invoice_number") or "")
+        edit_hint("invoice_number")
         col1, col2 = st.columns(2)
         with col1:
             vendor_name = st.text_input("Vendor", value=inv.get("vendor_name") or "")
+            edit_hint("vendor_name")
             vendor_address = st.text_input("Vendor Address", value=inv.get("vendor_address") or "")
+            edit_hint("vendor_address")
             vendor_tax_id = st.text_input("Vendor TIN", value=inv.get("vendor_tax_id") or "")
+            edit_hint("vendor_tax_id")
             customer_name = st.text_input("Customer", value=inv.get("customer_name") or "")
+            edit_hint("customer_name")
             customer_address = st.text_input("Customer Address", value=inv.get("customer_address") or "")
+            edit_hint("customer_address")
             customer_tax_id = st.text_input("Customer TIN", value=inv.get("customer_tax_id") or "")
+            edit_hint("customer_tax_id")
             plate_number = st.text_input("Plate #", value=inv.get("plate_number") or "")
+            edit_hint("plate_number")
             invoice_date_str = st.text_input(
                 "Invoice Date (YYYY-MM-DD)", value=inv.get("invoice_date") or ""
             )
+            edit_hint("invoice_date")
             currency = st.text_input("Currency", value=inv.get("currency") or "USD")
+            edit_hint("currency")
         with col2:
             subtotal = st.number_input(
                 "Vatable Sales", value=float(inv.get("subtotal") or 0.0), step=0.01, format="%.2f"
             )
+            edit_hint("subtotal")
             vat_exempt_sales = st.number_input(
                 "VAT-Exempt Sales", value=float(inv.get("vat_exempt_sales") or 0.0), step=0.01, format="%.2f"
             )
+            edit_hint("vat_exempt_sales")
             zero_rated_sales = st.number_input(
                 "Zero-Rated Sales", value=float(inv.get("zero_rated_sales") or 0.0), step=0.01, format="%.2f"
             )
+            edit_hint("zero_rated_sales")
             tax_amount = st.number_input(
                 "VAT", value=float(inv.get("tax_amount") or 0.0), step=0.01, format="%.2f"
             )
+            edit_hint("tax_amount")
             withholding_tax = st.number_input(
                 "Withholding Tax", value=float(inv.get("withholding_tax") or 0.0), step=0.01, format="%.2f",
                 help="Amount explicitly printed as Less: Withholding Tax / WHT."
             )
+            edit_hint("withholding_tax")
             # Discount remains an internal field used by accounting reconciliation, but management requested it hidden from the UI.
             discount = float(inv.get("discount") or 0.0)
             total_amount = st.number_input(
                 "Total Amount Due", value=float(inv.get("total_amount") or 0.0), step=0.01, format="%.2f"
             )
+            edit_hint("total_amount")
             status = st.selectbox(
                 "Status",
                 STATUS_OPTIONS,
@@ -352,6 +378,14 @@ def render_edit_form(inv: dict):
             "bottom. To delete a row, select it (checkbox on the left) and press the 🗑️ "
             "icon that appears above the table."
         )
+        item_warnings = [
+            f"Row {i+1} — {key.replace('_', ' ')}: {evidence[f'line_items.{i}.{key}']['warning']}"
+            for i, item in enumerate(inv.get("line_items") or [])
+            for key in ("description", "quantity", "unit_price", "amount")
+            if evidence.get(f"line_items.{i}.{key}", {}).get("warning")
+        ]
+        if item_warnings:
+            st.warning("**Review these cells before editing:**\n\n" + "\n".join("- " + w for w in item_warnings))
         line_items_df = pd.DataFrame(
             [
                 {
@@ -784,33 +818,40 @@ if invoices:
         else:
             st.subheader(f"Invoice {detail['invoice_number']}")
             c1, c2 = st.columns(2)
-            c1.write(f"**Vendor:** {detail['vendor_name']}")
-            c1.write(f"**Vendor Address:** {detail.get('vendor_address') or '-'}")
-            c1.write(f"**Vendor TIN:** {detail.get('vendor_tax_id') or '-'}")
+            # Confidence remains internal. Show only actionable verification flags.
+            evidence, historic_estimate = evidence_for_invoice(detail)
+            evidence = visible_field_evidence(evidence)
+            # Historic evidence limitations are explained only inside the
+            # optional review-details expander instead of occupying header space.
+            render_field(c1, "Vendor", "vendor_name", detail.get("vendor_name") or "-", evidence)
+            render_field(c1, "Vendor Address", "vendor_address", detail.get("vendor_address") or "-", evidence)
+            render_field(c1, "Vendor TIN", "vendor_tax_id", detail.get("vendor_tax_id") or "-", evidence)
             for label, field in (("Customer", "customer_name"),
                                  ("Customer Address", "customer_address"),
                                  ("Customer TIN", "customer_tax_id"),
                                  ("Plate #", "plate_number")):
                 value = str(detail.get(field) or "").strip()
                 if value and value not in ("-", "—"):
-                    c1.write(f"**{label}:** {value}")
-            c1.write(f"**Invoice Date:** {detail.get('invoice_date') or '-'}")
+                    render_field(c1, label, field, value, evidence)
+            render_field(c1, "Invoice #", "invoice_number", str(detail.get("invoice_number") or "-"), evidence)
+            render_field(c1, "Invoice Date", "invoice_date", str(detail.get("invoice_date") or "-"), evidence)
             c1.write(f"**Date Uploaded:** {detail.get('date_uploaded') or (detail.get('created_at') or '')[:10] or '-'}")
             c1.write(f"**Filename:** {detail.get('original_filename') or '-'}")
-            c1.write(f"**Category:** {detail.get('category') or '-'}")
-            _subtotal = detail.get("subtotal")
-            _subtotal_display = (
-                f"{_subtotal:,.2f} {detail.get('currency')}" if _subtotal is not None
-                else "— (not extracted)"
-            )
-            c2.write(f"**Vatable Sales:** {_subtotal_display}")
-            c2.write(f"**VAT-Exempt Sales:** {(detail.get('vat_exempt_sales') or 0):,.2f} {detail.get('currency')}")
-            c2.write(f"**Zero-Rated Sales:** {(detail.get('zero_rated_sales') or 0):,.2f} {detail.get('currency')}")
-            c2.write(f"**VAT:** {(detail.get('tax_amount') or 0):,.2f} {detail.get('currency')}")
-            c2.write(f"**Withholding Tax:** {(detail.get('withholding_tax') or 0):,.2f} {detail.get('currency')}")
-            _total = detail.get("total_amount")
-            _total_display = f"{_total:,.2f} {detail.get('currency')}" if _total is not None else "— (not specified/extracted)"
-            c2.write(f"**Total Amount Due:** {_total_display}")
+            render_field(c1, "Category", "category", str(detail.get("category") or "-"), evidence)
+            currency = detail.get("currency") or ""
+            # A missing amount appears as 0.00 *only in the detail display*;
+            # preserve None in SQLite for validation, review, and later edits.
+            for label, key in HISTORY_FINANCIAL_FIELDS:
+                render_field(c2, label, key, format_history_amount(detail.get(key), currency), evidence)
+            if has_unextracted_amount(detail):
+                c2.caption("ⓘ A displayed 0.00 may mean the amount was not extracted; "
+                           "it does not confirm that the source invoice says zero.")
+            # Only client-approved optional fields are displayed here. Due Date,
+            # Tax Rate and Payment Terms remain stored for internal use.
+            for label, key in HISTORY_SECONDARY_FIELDS:
+                value = detail.get(key)
+                if value is not None and value != "":
+                    render_field(c2, label, key, str(value), evidence)
             c2.write(f"**Status:** {detail.get('status')}")
             c2.write(f"**Locked:** {'🔒 Yes' if detail.get('locked') else '🔓 No'}")
 
@@ -824,26 +865,47 @@ if invoices:
             if quality_warnings:
                 st.warning("Review required:\n\n" + "\n".join(f"• {w}" for w in quality_warnings))
 
+            # Persisted at extraction time; historic invoices from older builds
+            # may have no saved validation list, so also run current checks on
+            # their stored fields when opened. Manual edits are checked anew.
+            from ai.validator import validate_extraction
+            from utils.invoice_template_detector import detect_invoice_template
+            _source_text = detail.get("raw_text") or ""
+            _template = detect_invoice_template(_source_text)
+            _live_checks = validate_extraction(detail, template_name=_template, ocr_text=_source_text)
+            _all_checks = list(dict.fromkeys(visible_validation_issues(_live_checks)))
+            if _all_checks:
+                st.warning("**Validation warnings — review source before approving:**\n\n"
+                           + "\n".join(f"- {issue}" for issue in _all_checks))
+
             line_items = detail.get("line_items") or []
+            item_review_reasons = []
             if line_items:
                 st.markdown("**Items purchased:**")
-                st.dataframe(
-                    [
-                        {
-                            "Item": li.get("description") or "-",
-                            "Qty": li.get("quantity") or 0,
-                            "Unit Price": f"{(li.get('unit_price') or 0):,.2f}",
-                            "Total Unit Price": f"{(li.get('amount') or 0):,.2f}",
-                        }
-                        for li in line_items
-                    ],
-                    hide_index=True,
-                    use_container_width=True,
-                )
+                styled_items, item_review_reasons = line_items_review_table(line_items, evidence)
+                st.dataframe(styled_items, hide_index=True, use_container_width=True)
                 items_sum = sum(li.get("amount") or 0 for li in line_items)
                 st.caption(f"Sum of Total Unit Price: {items_sum:,.2f} {detail.get('currency') or ''}".strip())
             else:
                 st.caption("No individual line items were extracted for this invoice.")
+
+            # Only actionable flags appear here. Full explanations are available
+            # on demand; the value/cell itself is highlighted above.
+            field_review_reasons = [
+                f"{field.replace('_', ' ').title()}: {meta['warning']}"
+                for field, meta in evidence.items()
+                if not field.startswith("line_items.") and needs_verification(meta)
+            ]
+            review_reasons = field_review_reasons + item_review_reasons
+            if review_reasons:
+                st.caption(f"⚠ {len(review_reasons)} field/cell(s) highlighted for verification.")
+                with st.expander("⚠ View verification reasons"):
+                    for reason in review_reasons:
+                        st.write(f"• {reason}")
+                    if historic_estimate:
+                        st.caption("Older invoices are assessed using archived OCR text only; "
+                                   "re-upload for full extraction-time evidence. "
+                                   "These flags are heuristics, not error probabilities.")
 
             b1, b2, b3 = st.columns(3)
             b1.button(

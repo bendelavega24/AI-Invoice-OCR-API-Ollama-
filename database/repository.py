@@ -1,3 +1,4 @@
+import json
 """Data-access layer — keeps SQLAlchemy specifics out of the services layer."""
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import desc
@@ -232,9 +233,11 @@ class InvoiceRepository:
             original_filename=invoice.original_filename,
             ocr_engine_used=invoice.ocr_engine_used,
             confidence_score=invoice.confidence_score,
+            field_evidence=json.dumps(invoice.field_evidence, ensure_ascii=False),
             status=invoice.status,
             raw_text=invoice.raw_text,
             vision_notes=invoice.vision_notes,
+            validation_issues=json.dumps(invoice.validation_issues,ensure_ascii=False),
         )
         orm_invoice.line_items = [
             LineItemORM(
@@ -319,6 +322,9 @@ class InvoiceRepository:
                 )
                 for li in (data["line_items"] or [])
             ]
+
+        if "field_evidence" in data:
+            obj.field_evidence = json.dumps(data["field_evidence"], ensure_ascii=False)
 
         # Re-check using the full logical duplicate policy after manual edits.
         existing, reason = self._find_duplicate(obj, obj.vendor_id, exclude_id=invoice_id)

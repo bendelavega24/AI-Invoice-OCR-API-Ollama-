@@ -10,10 +10,10 @@ from config.settings import settings
 from exports.common import EXPORT_COLUMNS, invoice_export_row, invoice_totals_row, timestamped_export_filename
 
 # Relative weights let long text fields breathe while guaranteeing that the
-# complete 19-column table fits inside the printable A3 landscape width.
+# complete invoice table fits inside the printable A3 landscape width.
 _COLUMN_WEIGHTS = {
     "ID": 0.55, "Invoice #": 0.95, "Vendor": 1.8, "Customer": 1.65, "Plate #": 0.75,
-    "Invoice Date": 0.9, "Date Uploaded": 0.9, "Due Date": 0.85, "Filename": 1.55,
+    "Invoice Date": 0.9, "Date Uploaded": 0.9, "Filename": 1.55,
     "Category": 1.0, "Vatable Sales": 0.9, "VAT-Exempt Sales": 0.9, "Zero-Rated Sales": 0.9,
     "VAT": 0.7, "Withholding Tax": 0.9, "Current Charges Total": 1.0, "Previous Balance": 0.9,
     "Total Amount Due": 1.0, "Currency": 0.65,

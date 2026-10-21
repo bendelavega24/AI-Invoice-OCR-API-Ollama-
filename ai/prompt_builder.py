@@ -117,6 +117,11 @@ fields as accurately as possible. Follow these rules strictly:
     Services") is never the customer's name — the customer is whoever is
     named after "Bill To:"/"Billed To:", even if the Nature-of-Services
     value happens to be positioned closer to it in the OCR text.
+17. For handwriting and mixed printed/handwritten forms, read the *filled-in* handwriting next to the exact label. Do not confuse the printed issuer, "Received By" signatory, cashier, or printed form template with the customer. For handwritten customer TIN, preserve the observed digits only; use null if illegible rather than reconstructing from another party's TIN.
+18. Address ownership is strict: seller/vendor address belongs to the issuing organization, while "Service Address", "Account Address", "Customer Address", and "Bill To" belong to the customer. Avoid using remittance and branch/collection office addresses unless explicitly identified as the vendor's address.
+19. Line-item values must follow the item's actual table row. An explicitly printed 0.00 is a REAL zero: do not replace it with the price of the next row, a total, or a positive calculated estimate. Do not infer a unit price from a summary charge. Handwritten item descriptions supersede nearby printed checkboxes and unfilled form labels.
+20. Prefer explicitly printed "Invoice No." over account/transaction references, explicitly printed bill/issue date over payment due date or regulatory print date, and explicitly printed TOTAL AMOUNT DUE over prior balances.
+21. For a printed VAT breakdown, capture Vatable Sales and VAT from their own labelled rows, then check the equation Total Due = Vatable Sales + VAT + Zero Rated + VAT Exempt - Discount - Withholding Tax. Preserve documented withholding tax as its own deduction, not as discount. If the equation disagrees, flag uncertainty in the relevant field rather than silently altering legible printed amounts.
 """
 
 
