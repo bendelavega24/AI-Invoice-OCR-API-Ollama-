@@ -1,0 +1,24 @@
+{
+  "new_regressions_passed": 28,
+  "broader_suite_passed": 398,
+  "baseline_failures": 6,
+  "socket_dependent_tests_not_completed": 3,
+  "validation_method": "source crop OCR plus recorded OCR/model pipeline replay",
+  "live_ollama": "blocked by WinError 10013",
+  "changed_files": [
+    "ai/validator.py",
+    "config/party_master.json",
+    "parser/invoice_parser.py",
+    "ui/pages/History.py",
+    "database/qa_migration.py",
+    "utils/data_quality.py"
+  ],
+  "added_files": [
+    "ai/source_evidence.py",
+    "ocr/detail_recovery.py",
+    "ui/components/document_pages.py",
+    "tests/test_qa_output_round2.py",
+    "tests/fixtures/qa/output_round2.json"
+  ],
+  "existing_records_automatically_rewritten": false
+}

@@ -34,6 +34,22 @@ def invoice_totals_row(invoices: list[dict]) -> dict:
     return row
 
 
+def invoice_totals_rows(invoices: list[dict]) -> list[dict]:
+    """One totals row per currency; never add PHP to USD or unknown currency."""
+    from services.currency_totals import currency_code
+    currencies = sorted({currency_code(inv.get("currency")) for inv in invoices})
+    if not currencies:
+        return [invoice_totals_row([])]
+    rows = []
+    for code in currencies:
+        subset = [inv for inv in invoices if currency_code(inv.get("currency")) == code]
+        row = invoice_totals_row(subset)
+        row["ID"] = "TOTAL"
+        row["Currency"] = code
+        rows.append(row)
+    return rows
+
+
 def invoice_export_row(inv: dict) -> dict:
     """Build one invoice-level export row."""
     return {

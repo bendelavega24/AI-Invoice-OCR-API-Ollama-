@@ -41,7 +41,7 @@ def render_scanner_input(locked: bool) -> list[tuple[str, bytes]] | None:
         except ScannerError as exc:
             st.error(str(exc))
     if pages:
-        st.caption(f'{len(pages)} page(s) ready. Scan ONE invoice at a time. Additional pages must belong to the SAME invoice.')
+        st.caption(f'{len(pages)} page(s) ready. Up to 20 pages per scan batch. Discard an unwanted page and scan it again.')
         index = st.selectbox('Preview page', range(len(pages)), format_func=lambda i: f'Page {i + 1}', disabled=locked)
         st.image(pages[index][1], width=500)
         left, right = st.columns(2)
@@ -51,8 +51,8 @@ def render_scanner_input(locked: bool) -> list[tuple[str, bytes]] | None:
         if right.button('Clear scanned pages', disabled=locked):
             st.session_state['scan_pages'] = []
             st.rerun()
-        combine = True  # All scanned pages must belong to one invoice.
-        if st.button('Process scanned invoice', type='primary', disabled=locked):
+        combine = st.radio('Process scanned pages as', ['Separate invoices', 'One multi-page PDF'], disabled=locked) == 'One multi-page PDF'
+        if st.button('Process scanned invoices', type='primary', disabled=locked):
             try:
                 prepared = prepare_scans(pages, combine)
                 if any(len(data) > settings.MAX_UPLOAD_MB * 1024 * 1024 for _, data in prepared):

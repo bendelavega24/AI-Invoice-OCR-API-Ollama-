@@ -1,0 +1,282 @@
+[
+  {
+    "bug": "[BUG-001]",
+    "test_cases": "Batch Ingestion Loops",
+    "description": "Fatal System Crash (INV-04.pdf): Processing large files causes a thread timeout. The system freezes and aborts data saving without any error recovery.",
+    "invoices": [
+      "INV-04.pdf"
+    ]
+  },
+  {
+    "bug": "[BUG-002]",
+    "test_cases": "TC001, TC002",
+    "description": "Ingested PDF and PNG files are accepted by the UI, but the system fails to extract major information fields.",
+    "invoices": [
+      "INV-01.pdf",
+      "INV-02.png"
+    ]
+  },
+  {
+    "bug": "[BUG-003]",
+    "test_cases": "TC005",
+    "description": "Multi-page PDF uploads are accepted, but the system cuts off secondary pages, leaving processing incomplete.",
+    "invoices": [
+      "INV-04.pdf"
+    ]
+  },
+  {
+    "bug": "[BUG-004]",
+    "test_cases": "TC016, TC017",
+    "description": "Automatic layout correction fails for images tilted at 90\u00b0 or 180\u00b0. Text stays unaligned, breaking invoice number tracking.",
+    "invoices": [
+      "INV-07.jpg",
+      "INV-08.jpg"
+    ]
+  },
+  {
+    "bug": "[BUG-005]",
+    "test_cases": "TC018",
+    "description": "The script lacks an auto-straightening tool. Crooked documents skip leveling adjustments, degrading final OCR readout accuracy.",
+    "invoices": [
+      "INV-09.jpg"
+    ]
+  },
+  {
+    "bug": "[BUG-006]",
+    "test_cases": "TC019, TC020",
+    "description": "OCR processes fail to handle bad image quality. Blurry documents cause corrupted strings, and low-resolution inputs give wrong values.",
+    "invoices": [
+      "INV-10.jpeg",
+      "INV-11.jpeg"
+    ]
+  },
+  {
+    "bug": "[BUG-007]",
+    "test_cases": "TC022",
+    "description": "Preprocessing lacks lighting normalization. Document shadows mess up text boundaries, causing wrong invoice ID extractions.",
+    "invoices": [
+      "INV-13.png"
+    ]
+  },
+  {
+    "bug": "[BUG-008]",
+    "test_cases": "TC023, TC024, TC025",
+    "description": "Ingestion tool struggles with physical scans, full-color profiles, or raw grayscale grids, outputting distorted text values.",
+    "invoices": [
+      "INV-14.jpg",
+      "INV-15.jpg",
+      "INV-16.png"
+    ]
+  },
+  {
+    "bug": "[BUG-009]",
+    "test_cases": "TC026, TC027, TC028, TC029",
+    "description": "The system misreads text when logos or watermarks are present, and fails to flag missing fields on cropped or incomplete multi-page layers.",
+    "invoices": [
+      "INV-04.pdf",
+      "INV-17.jpg",
+      "INV-18.jpg",
+      "INV-19.jpg"
+    ]
+  },
+  {
+    "bug": "[BUG-010]",
+    "test_cases": "TC033",
+    "description": "Mapping rules are inverted. The OCR engine reads the invoice Due Date and incorrectly saves it as the Invoice Date.",
+    "invoices": [
+      "INV-01.pdf"
+    ]
+  },
+  {
+    "bug": "[BUG-011]",
+    "test_cases": "TC035, TC042",
+    "description": "Character recognition layers misread symbols, resulting in failed extractions of currency symbols and special codes.",
+    "invoices": [
+      "INV-01.pdf"
+    ]
+  },
+  {
+    "bug": "[BUG-012]",
+    "test_cases": "TC036, TC037, TC039",
+    "description": "Calculation zones are uncalibrated. Totals and subtotals are saved with wrong values, and the Tax field is completely missed.",
+    "invoices": [
+      "INV-01.pdf"
+    ]
+  },
+  {
+    "bug": "[BUG-013]",
+    "test_cases": "TC040",
+    "description": "Vertical table grid boundaries are missing. The OCR engine cannot read item table rows, causing data drops for product items.",
+    "invoices": [
+      "INV-01.pdf",
+      "INV-22.jpg"
+    ]
+  },
+  {
+    "bug": "[BUG-014]",
+    "test_cases": "TC041",
+    "description": "Test summary loops show character recognition falls significantly below the required \u226590% accuracy baseline.",
+    "invoices": [
+      "INV-01.pdf"
+    ]
+  },
+  {
+    "bug": "[BUG-015]",
+    "test_cases": "TC044, TC045",
+    "description": "System generates reading errors on reference tracking codes, and skips text extractions on secondary pages of multi-page invoices.",
+    "invoices": [
+      "INV-01.pdf",
+      "INV-04.pdf"
+    ]
+  },
+  {
+    "bug": "[BUG-016]",
+    "test_cases": "TC046, TC048, TC050",
+    "description": "Extracted text data fails to map to correct layout blocks, creating critical mapping bugs for Vendor Names, Invoice Dates, and Currencies.",
+    "invoices": [
+      "INV-01.pdf"
+    ]
+  },
+  {
+    "bug": "[BUG-017]",
+    "test_cases": "TC051, TC052, TC053, TC055",
+    "description": "Local AI context misses numeric limits, saving corrupted database rows for Item Quantity, Unit Price, Tax values, and Total Amounts.",
+    "invoices": [
+      "INV-01.pdf"
+    ]
+  },
+  {
+    "bug": "[BUG-018]",
+    "test_cases": "TC056, TC057, TC059",
+    "description": "Prompts lack iterative row trackers. The model fails to process multi-row item tables or capture text from multi-page documents.",
+    "invoices": [
+      "INV-01.pdf",
+      "INV-04.pdf",
+      "INV-22.jpg"
+    ]
+  },
+  {
+    "bug": "[BUG-019]",
+    "test_cases": "TC060",
+    "description": "The front-end user layout lacks confidence metrics; field-level accuracy confidence scores do not display post-execution.",
+    "invoices": [
+      "INV-01.pdf",
+      "INV-43.png"
+    ]
+  },
+  {
+    "bug": "[BUG-020]",
+    "test_cases": "TC061, TC062, TC063, TC064",
+    "description": "Missing field checks fail to execute. Invoices completely without Vendor Names, IDs, Billing Dates, or Totals pass without throwing errors.",
+    "invoices": [
+      "INV-23.png",
+      "INV-24.png",
+      "INV-25.png",
+      "INV-26.jpg"
+    ]
+  },
+  {
+    "bug": "[BUG-021]",
+    "test_cases": "TC065, TC066, TC067",
+    "description": "Validation loops bypass formatting rules. Malformed date formats, future dates, and unsupported country currency structures pass with no warning.",
+    "invoices": [
+      "INV-27.png",
+      "INV-28.png",
+      "INV-29.jpg"
+    ]
+  },
+  {
+    "bug": "[BUG-022]",
+    "test_cases": "TC068, TC069, TC072, TC074",
+    "description": "Logic checks lack mathematical sanity limits. Tax inputs exceeding overall invoice costs, negative prices, and blank records are accepted.",
+    "invoices": [
+      "INV-30.jpg",
+      "INV-31.png",
+      "INV-34.jpg",
+      "INV-36.jpg"
+    ]
+  },
+  {
+    "bug": "[BUG-023]",
+    "test_cases": "TC070, TC071",
+    "description": "Math parity verification fails. Validations overlook calculation errors where item rows do not sum up or where Total \u2260 Subtotal + Tax.",
+    "invoices": [
+      "INV-32.jpg",
+      "INV-33.jpg"
+    ]
+  },
+  {
+    "bug": "[BUG-024]",
+    "test_cases": "TC075",
+    "description": "Back-end error blocks operate under certain states but fail to display text message errors or warnings to the user on the screen.",
+    "invoices": []
+  },
+  {
+    "bug": "[BUG-025]",
+    "test_cases": "TC079, TC081",
+    "description": "Duplicate filters trigger false alarms, blocking unique invoice numbers from entirely different vendors, and fail checks on minor file updates.",
+    "invoices": [
+      "INV-38.png",
+      "INV-38_2.png",
+      "INV-40.png"
+    ]
+  },
+  {
+    "bug": "[BUG-026]",
+    "test_cases": "TC084, TC085",
+    "description": "Saved data fields have errors. Active database strings do not match extracted numbers, corrupting line item lists during save loops.",
+    "invoices": []
+  },
+  {
+    "bug": "[BUG-027]",
+    "test_cases": "TC089, TC090",
+    "description": "Search tools return zero records. Entering verified Invoice Numbers or Vendor Names into query boxes reveals blank result blocks.",
+    "invoices": []
+  },
+  {
+    "bug": "[BUG-028]",
+    "test_cases": "TC092",
+    "description": "Search keyword indexing runs inconsistently. Entering partial text strings outputs unstable and changing document lists across tracking panels.",
+    "invoices": []
+  },
+  {
+    "bug": "[BUG-029]",
+    "test_cases": "TC102, TC103, TC106",
+    "description": "Text-cleaning scripts damage valid text records. Normalization loops accidentally strip core layout IDs, causing the loss of Invoice Numbers and Dates.",
+    "invoices": []
+  },
+  {
+    "bug": "[BUG-030]",
+    "test_cases": "TC113, TC114, TC116",
+    "description": "Mandatory parameter capture features drop data groups on multi-page arrays and completely lose missing-field indicator flags.",
+    "invoices": [
+      "INV-04.pdf",
+      "INV-19.jpg",
+      "INV-22.jpg",
+      "INV-42.png"
+    ]
+  },
+  {
+    "bug": "[BUG-031]",
+    "test_cases": "TC099, TC124",
+    "description": "Severe Slowdown: End-to-end processing takes 4 minutes and 54 seconds, violating the 30-second target processing SLA by an absolute 264 seconds.",
+    "invoices": []
+  },
+  {
+    "bug": "[BUG-032]",
+    "test_cases": "TC118, TC122",
+    "description": "Workflow loops pass broken data strings to the database. These faulty values map straight into user spreadsheets and downloadable CSV/Excel files.",
+    "invoices": [
+      "INV-01.pdf"
+    ]
+  },
+  {
+    "bug": "[BUG-033]",
+    "test_cases": "TC119, TC120, TC125",
+    "description": "Background tasks skip processing secondary pages, accept missing fields by formatting them as a hyphen - with no warnings, and fail to highlight low-confidence blocks.",
+    "invoices": [
+      "INV-04.pdf",
+      "INV-43.png"
+    ]
+  }
+]

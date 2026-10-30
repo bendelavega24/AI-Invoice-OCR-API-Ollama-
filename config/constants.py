@@ -16,8 +16,8 @@ INVOICE_STATUS_REVIEW = "needs_review"
 INVOICE_STATUS_FAILED = "failed"
 
 CURRENCY_SYMBOLS = {
-    "$": "USD", "â‚¬": "EUR", "Â£": "GBP", "Â¥": "JPY",
-    "â‚±": "PHP", "â‚¹": "INR", "â‚©": "KRW",
+    "$": "USD", "€": "EUR", "£": "GBP", "¥": "JPY",
+    "₱": "PHP", "₹": "INR", "₩": "KRW",
 }
 
 REQUIRED_FIELDS = [
@@ -147,13 +147,12 @@ EXTRACTION_SCHEMA = {
         "number â€” the Total Amount Due: the final amount owed/payable for "
         "this transaction, i.e. the Net Amount plus VAT and any other "
         "applicable charges (also known as 'Gross Total'). Look for labels "
-        "like TOTAL, AMOUNT DUE, AMOUNT PAYABLE, PLEASE PAY, or GRAND TOTAL. Do NOT use "
+        "like TOTAL, AMOUNT DUE, AMOUNT PAYABLE, or GRAND TOTAL. Do NOT use "
         "CASH/TENDERED (money handed over by the customer) or CHANGE (money "
         "handed back) â€” those are payment mechanics, not the total."
     ),
     "current_charges_total": (
         "number or null — on billing statements, the current-period Statement Summary total before any carried previous balance. "
-        "Also look for labels such as 'Charges for this billing period' or 'Current Charges'. "
         "Do not confuse it with Amount to Pay when a Remaining Balance from a previous bill is also present."
     ),
     "previous_balance": (

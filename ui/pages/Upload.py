@@ -3,13 +3,14 @@ import sys
 import time
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
+from utils.money_display import display_money
 
 import streamlit as st
+from ui.components.quality_details import render_quality_details
 from config.settings import settings
-from config.field_visibility import visible_field_evidence, visible_validation_issues
 from services.upload_service import handle_upload, UploadError
 from services.invoice_service import process_invoice_file
-from ai.vision_budget import vision_batch
+from ai.vision_budget import vision_batch, preflight_local_vision_model
 from ui.components.nav import render_nav
 
 st.set_page_config(page_title="Upload Invoices", page_icon="📤", layout="wide")
@@ -22,7 +23,6 @@ st.session_state.setdefault("upload_batch_seconds", None)
 render_nav()
 
 st.title("📤 Upload Invoices")
-st.warning("Upload only ONE invoice per file. Multiple files are allowed if each contains a different single invoice. Multi-invoice PDFs/images are not supported: they increase processing time and reduce extraction accuracy. Pages of one invoice may be kept together when the page sequence is clearly identified.")
 
 locked = st.session_state.upload_in_progress
 
@@ -79,6 +79,14 @@ if locked and st.session_state.pending_upload_files:
     batch_start = time.perf_counter()
 
     with vision_batch():
+        availability = preflight_local_vision_model()
+        if availability["checked"] and not availability["available"]:
+            st.session_state.upload_vision_notice = (
+                "Optional local vision model unavailable: " + (availability.get("reason") or "not found")
+                + " OCR and text extraction will continue."
+            )
+        else:
+            st.session_state.upload_vision_notice = None
         for i, (name, data) in enumerate(pending):
             progress.progress(i / len(pending), text=f"Processing {name}...")
             file_start = time.perf_counter()
@@ -91,14 +99,18 @@ if locked and st.session_state.pending_upload_files:
                 })
                 continue
 
-            # The service rejects files containing separately detected invoices.
-            # A list is still returned for consistent success/error handling.
-            file_results = process_invoice_file(
-                saved_path,
-                force_handwritten=st.session_state.get("force_handwritten"),
-                original_filename=name,
-                enhance_image=st.session_state.get("enhance_image"),
-            )
+            # A single uploaded file (especially a multi-page PDF) can contain
+            # more than one invoice — process_invoice_file() now returns a
+            # list, one entry per invoice found, instead of a single dict.
+            try:
+                file_results = process_invoice_file(
+                    saved_path,
+                    force_handwritten=st.session_state.get("force_handwritten"),
+                    original_filename=name,
+                    enhance_image=st.session_state.get("enhance_image"),
+                )
+            except Exception as exc:
+                file_results = [{"success": False, "error": str(exc), "file": name}]
             elapsed = time.perf_counter() - file_start
             for result in file_results:
                 result.setdefault("file", result.get("original_filename", name))
@@ -116,6 +128,8 @@ if locked and st.session_state.pending_upload_files:
     st.rerun()
 
 if st.session_state.upload_results:
+    if st.session_state.get("upload_vision_notice"):
+        st.warning(st.session_state.upload_vision_notice)
     if st.session_state.get("upload_batch_seconds") is not None:
         st.caption(f"⏱️ Total time: {st.session_state.upload_batch_seconds:.1f}s for {len(st.session_state.upload_results)} invoice(s).")
     for r in st.session_state.upload_results:
@@ -126,13 +140,12 @@ if st.session_state.upload_results:
         elif r.get("duplicate"):
             st.warning(f"⚠️ {r['file']}: {r.get('error')}{elapsed_suffix}")
         elif r.get("success"):
-            if "VISION_VERIFICATION_INCOMPLETE:" in (r.get("vision_notes") or ""):
+            render_quality_details(r)
+            if "VISION_VERIFICATION_INCOMPLETE:" in (r.get("vision_notes") or "") and not any("VISION_VERIFICATION_INCOMPLETE:" in str(issue) for issue in (r.get("validation_issues") or [])):
                 st.warning(f"{r['file']}: Image verification was incomplete. OCR/text results were saved; review them against the original invoice.")
             invoice_id = r.get("invoice_id")
             vendor = r.get("vendor_name") or "-"
-            total_value = r.get("total_amount")
-            total_text = (f"{total_value:,.2f} {r.get('currency', '')}".strip()
-                          if total_value is not None else "Not specified")
+            total_text = display_money(r.get("total_amount"), r.get("currency"))
             status_text = r.get("status") or "-"
             ocr_text = r.get("ocr_engine_used") or "-"
             time_text = f"{elapsed:.1f}s" if elapsed is not None else "-"
@@ -154,24 +167,6 @@ if st.session_state.upload_results:
                 f"OCR engine used: {ocr_text}",
                 f"Processing time: {time_text}",
             ]
-            visible_issues = visible_validation_issues(r.get("validation_issues"))
-            if visible_issues:
-                st.warning("**Validation warnings — please check the original invoice:**\n\n"
-                           + "\n".join(f"- {issue}" for issue in visible_issues))
-                help_lines.append("Validation warnings:")
-                help_lines.extend(visible_issues)
-            # Show the most important cell/field warnings immediately after
-            # upload, without exposing the legacy overall invoice score.
-            from ui.components.field_evidence import field_review_summary
-            field_warnings = field_review_summary(visible_field_evidence(r.get("field_evidence")))
-            if field_warnings:
-                with st.expander(f"⚠️ {r['file']}: fields/line items needing verification ({len(field_warnings)} shown)", expanded=True):
-                    for warning in field_warnings:
-                        st.write("• " + warning)
-            if r.get("quality_warnings"):
-                st.warning(f"{r['file']}: " + " ".join(r["quality_warnings"]))
-                help_lines.append("Review warnings:")
-                help_lines.extend(r["quality_warnings"])
             if r.get("vision_notes"):
                 help_lines.append("Vision cross-check notes:")
                 help_lines.extend(r["vision_notes"].split("\n"))

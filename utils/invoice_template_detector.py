@@ -24,18 +24,4 @@ def detect_invoice_template(ocr_text: str) -> str:
     if "AMOUNT TO PAY" in text:
         watsons_signals += 1
 
-    if watsons_signals >= 3:
-        return "watsons"
-
-    # Meralco "ELECTRIC BILL": several independent layout markers are required,
-    # so an address such as "Meralco Ave" on another vendor's invoice can never
-    # select this template.
-    if "MERALCO" in text:
-        meralco_signals = sum(
-            marker in text
-            for marker in ("ELECTRIC BILL", "EB INVOICE", "BREAKDOWN OF ELECTRICITY CHARGES", "ENERGY BILL AMOUNT")
-        )
-        if meralco_signals >= 3:
-            return "meralco"
-
-    return "generic"
+    return "watsons" if watsons_signals >= 3 else "generic"

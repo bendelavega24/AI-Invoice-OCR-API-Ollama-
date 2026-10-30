@@ -12,11 +12,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings:
-    # Stop repeated unavailable vision calls within one upload batch; reset on next batch.
+    # Deprecated: retained for compatibility, no longer includes OCR time.
+    API_TEXT_BUDGET_SECONDS: float = float(os.getenv("API_TEXT_BUDGET_SECONDS", "150"))
+    LOCAL_TEXT_BUDGET_SECONDS: float = float(os.getenv("LOCAL_TEXT_BUDGET_SECONDS", "600"))
+    API_VISION_BUDGET_SECONDS: float = float(os.getenv("API_VISION_BUDGET_SECONDS", "180"))
+    LOCAL_VISION_BUDGET_SECONDS: float = float(os.getenv("LOCAL_VISION_BUDGET_SECONDS", "360"))
+    PROCESSING_BUDGET_SECONDS: float = float(os.getenv("PROCESSING_BUDGET_SECONDS", "30"))
+    # Bound repeated vision failures within a file; the next file gets a fresh scope.
+    # Legacy environment-key name retained for compatibility.
     VISION_BATCH_GUARD_ENABLED: bool = os.getenv("VISION_BATCH_GUARD_ENABLED", "true").lower() == "true"
-    # Multi-page PDFs: treat pages that carry an explicit "Page N of M" marker (N>1) as continuations of
-    # the preceding page's invoice instead of as separate invoices. Set false for the old one-invoice-per-page behaviour.
-    MULTIPAGE_MERGE_CONTINUATIONS: bool = os.getenv("MULTIPAGE_MERGE_CONTINUATIONS", "true").lower() == "true"
     LLM_EARLY_CLEANUP_ENABLED: bool = os.getenv("LLM_EARLY_CLEANUP_ENABLED", "true").lower() == "true"
 
     # OCR
@@ -66,7 +70,7 @@ class Settings:
     # real phone-photo receipts (faded thermal paper, glare, uneven
     # lighting) before OCR ever runs. Turn off only if you've confirmed it
     # hurts accuracy for your specific document source.
-    OCR_PREPROCESS_ENABLED: bool = os.getenv("OCR_PREPROCESS_ENABLED", "false").lower() == "true"
+    OCR_PREPROCESS_ENABLED: bool = os.getenv("OCR_PREPROCESS_ENABLED", "true").lower() == "true"
     # Off by default — see ocr/preprocessing.py docstring. Hard binarization
     # tends to hurt PaddleOCR/TrOCR on real phone photos more than it helps.
     OCR_PREPROCESS_BINARIZE: bool = os.getenv("OCR_PREPROCESS_BINARIZE", "false").lower() == "true"
@@ -92,8 +96,8 @@ class Settings:
     # Switch sites by changing only these three values in .env:
     #     LLM_API_KEY=...   LLM_BASE_URL=...   LLM_MODEL=...
     LLM_API_KEY: str = os.getenv("LLM_API_KEY", "").strip()
-    LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "").strip()
-    LLM_MODEL: str = os.getenv("LLM_MODEL", "").strip()
+    LLM_BASE_URL: str = os.getenv("LLM_BASE_URL", "https://api.groq.com/openai/v1").strip()
+    LLM_MODEL: str = os.getenv("LLM_MODEL", "qwen/qwen3.8-27b").strip()
     LLM_SEARCH_MODEL: str = os.getenv("LLM_SEARCH_MODEL", "").strip()
     LLM_VISION_MODEL: str = os.getenv("LLM_VISION_MODEL", "").strip()
     # Optional extra param some providers support (e.g. "none" turns thinking
@@ -139,6 +143,7 @@ class Settings:
     OPENROUTER_RETRY_BUDGET_SECONDS: int = int(os.getenv("LLM_API_RETRY_BUDGET_SECONDS", os.getenv("OPENROUTER_RETRY_BUDGET_SECONDS", "300")))
     # Output cap for OpenRouter responses (max_tokens). Not used for Ollama.
     LLM_MAX_TOKENS: int = int(os.getenv("LLM_MAX_TOKENS", "4096"))
+    LLM_CONTEXT_TOKENS: int = int(os.getenv("LLM_CONTEXT_TOKENS", "16384"))
     # Automatic fallback: if OpenRouter fails (no/invalid key, no credits,
     # rate limit, timeout, 5xx) the same request is retried on local Ollama.
     LLM_FALLBACK_TO_OLLAMA: bool = os.getenv("LLM_FALLBACK_TO_OLLAMA", "true").lower() == "true"
@@ -148,16 +153,7 @@ class Settings:
     # Auth/credit problems (401/402/403) won't fix themselves, so use the long
     # one; rate limits/timeouts/5xx use the short one.
     OPENROUTER_COOLDOWN_SECONDS: int = int(os.getenv("LLM_API_COOLDOWN_SECONDS", os.getenv("OPENROUTER_COOLDOWN_SECONDS", "600")))
-    # 300s (was 60s): a local Ollama generation often takes longer than 60s, so with 60s the API was
-    # tried again (and could burn its full retry budget) in the middle of the same invoice.
-    OPENROUTER_SHORT_COOLDOWN_SECONDS: int = int(os.getenv("LLM_API_SHORT_COOLDOWN_SECONDS", os.getenv("OPENROUTER_SHORT_COOLDOWN_SECONDS", "300")))
-    # In "Both" mode Ollama is the safety net, so the API gets a SHORT leash before failing over instead of
-    # the full retry/timeout budget above (which is still used in "API only" mode).
-    LLM_FALLBACK_API_TIMEOUT_SECONDS: int = int(os.getenv("LLM_FALLBACK_API_TIMEOUT_SECONDS", "45"))
-    LLM_FALLBACK_API_MAX_RETRIES: int = int(os.getenv("LLM_FALLBACK_API_MAX_RETRIES", "1"))
-    LLM_FALLBACK_API_BUDGET_SECONDS: int = int(os.getenv("LLM_FALLBACK_API_BUDGET_SECONDS", "60"))
-    # Connect timeout for the hosted API, so an unreachable host fails over in seconds, not minutes.
-    LLM_API_CONNECT_TIMEOUT_SECONDS: int = int(os.getenv("LLM_API_CONNECT_TIMEOUT_SECONDS", "10"))
+    OPENROUTER_SHORT_COOLDOWN_SECONDS: int = int(os.getenv("LLM_API_SHORT_COOLDOWN_SECONDS", os.getenv("OPENROUTER_SHORT_COOLDOWN_SECONDS", "60")))
 
     # LLM / Ollama
     OLLAMA_HOST: str = os.getenv("OLLAMA_HOST", "http://localhost:11434")
@@ -182,18 +178,6 @@ class Settings:
     # and the next request pays a cold-start reload on top of generation
     # time — often the real cause of a timeout that "shouldn't" happen.
     OLLAMA_KEEP_ALIVE: str = os.getenv("OLLAMA_KEEP_ALIVE", "30m")
-    # Context window for the invoice-extraction/correction request. The prompt (instructions + JSON schema) is
-    # ~4,500 tokens BEFORE any OCR text is added, and a typical invoice brings it to 5,000-6,000+. Ollama's own
-    # default window is only 2,048-4,096 tokens (it depends on the version and available VRAM), and when a prompt
-    # doesn't fit Ollama SILENTLY drops tokens from the front: instructions, schema, even the top of the invoice
-    # (vendor, invoice number). Must exceed prompt + response; raise it for long/merged multi-page invoices.
-    OLLAMA_NUM_CTX: int = int(os.getenv("OLLAMA_NUM_CTX", "16384"))
-    # Hard cap on GENERATED tokens. Without it a small local model that falls into a repetition loop keeps
-    # generating until the whole context window is full (minutes on CPU) and the request "never finishes".
-    # A full invoice JSON is ~1-2k tokens; raise this only for very long multi-page invoices.
-    OLLAMA_NUM_PREDICT: int = int(os.getenv("OLLAMA_NUM_PREDICT", "6144"))
-    VISION_NUM_PREDICT: int = int(os.getenv("VISION_NUM_PREDICT", "2048"))
-    SEARCH_NUM_PREDICT: int = int(os.getenv("SEARCH_NUM_PREDICT", "1024"))
 
     # Natural-language search uses the same local text model by default but
     # has its own setting so it can be changed independently later without
@@ -268,7 +252,7 @@ class Settings:
     # (see ai/post_processing.sanitize_for_model). Set this to match where
     # your invoices actually come from — e.g. PHP if you're processing
     # Philippine receipts, since "USD" would silently be wrong otherwise.
-    DEFAULT_CURRENCY: str = os.getenv("DEFAULT_CURRENCY", "USD")
+    DEFAULT_CURRENCY: str = os.getenv("DEFAULT_CURRENCY", "PHP")
     # New, off-by-default: run every uploaded photo (not PDFs) through
     # ocr/preprocessing.py::camscan() — auto-crop to the receipt's edges,
     # straighten, enhance contrast — and save the result for History to

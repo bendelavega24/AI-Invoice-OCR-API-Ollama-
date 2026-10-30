@@ -14,10 +14,10 @@ class FieldConfidence(BaseModel):
 class Prediction(BaseModel):
     raw_json: dict
     field_confidences: list[FieldConfidence] = []
-    field_evidence: dict[str, dict] = {}
     overall_confidence: float = 0.0
     needs_review: bool = False
     warnings: list[str] = []
+    field_evidence: dict[str, dict] = {}
 
     def low_confidence_fields(self, threshold: float = 0.75) -> list[str]:
         return [fc.field for fc in self.field_confidences if fc.confidence < threshold]

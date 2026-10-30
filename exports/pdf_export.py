@@ -7,15 +7,15 @@ from reportlab.lib.units import mm, inch
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from config.settings import settings
-from exports.common import EXPORT_COLUMNS, invoice_export_row, invoice_totals_row, timestamped_export_filename
+from exports.common import EXPORT_COLUMNS, invoice_export_row, invoice_totals_rows, timestamped_export_filename
 
 # Relative weights let long text fields breathe while guaranteeing that the
-# complete invoice table fits inside the printable A3 landscape width.
+# complete 19-column table fits inside the printable A3 landscape width.
 _COLUMN_WEIGHTS = {
     "ID": 0.55, "Invoice #": 0.95, "Vendor": 1.8, "Customer": 1.65, "Plate #": 0.75,
-    "Invoice Date": 0.9, "Date Uploaded": 0.9, "Filename": 1.55,
+    "Invoice Date": 0.9, "Date Uploaded": 0.9, "Due Date": 0.85, "Filename": 1.55,
     "Category": 1.0, "Vatable Sales": 0.9, "VAT-Exempt Sales": 0.9, "Zero-Rated Sales": 0.9,
-    "VAT": 0.7, "Withholding Tax": 0.9,
+    "VAT": 0.7, "Withholding Tax": 0.9, "Current Charges Total": 1.0, "Previous Balance": 0.9,
     "Total Amount Due": 1.0, "Currency": 0.65,
 }
 
@@ -31,7 +31,7 @@ def export_to_pdf(invoices: list[dict], filename: str | None = None, chart_path:
     out_path = Path(settings.EXPORT_DIR) / filename
 
     # A3 landscape + explicit fitted column widths prevents the left/right
-    # clipping seen when ReportLab auto-sized a wide invoice table.
+    # clipping seen when ReportLab auto-sized the wide 19-column table.
     doc = SimpleDocTemplate(
         str(out_path), pagesize=landscape(A3),
         leftMargin=8 * mm, rightMargin=8 * mm, topMargin=10 * mm, bottomMargin=10 * mm,
@@ -54,8 +54,8 @@ def export_to_pdf(invoices: list[dict], filename: str | None = None, chart_path:
     for inv in invoices:
         row = invoice_export_row(inv)
         data.append([Paragraph(escape(str(row[col])), cell_style) for col in EXPORT_COLUMNS])
-    totals = invoice_totals_row(invoices)
-    data.append([Paragraph(str(totals[col]), total_style) for col in EXPORT_COLUMNS])
+    for totals in invoice_totals_rows(invoices):
+        data.append([Paragraph(escape(str(totals[col])), total_style) for col in EXPORT_COLUMNS])
 
     table = Table(data, repeatRows=1, colWidths=_column_widths(doc.width), hAlign="CENTER")
     table.setStyle(TableStyle([
@@ -68,7 +68,7 @@ def export_to_pdf(invoices: list[dict], filename: str | None = None, chart_path:
         ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
         ("GRID", (0, 0), (-1, -1), 0.35, colors.grey),
         ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F2F2F2")]),
-        ("BACKGROUND", (0, -1), (-1, -1), colors.HexColor("#E4E9E3")),
+        ("BACKGROUND", (0, -len(invoice_totals_rows(invoices))), (-1, -1), colors.HexColor("#E4E9E3")),
     ]))
     elements.append(table)
 

@@ -31,7 +31,7 @@ NUMERIC_FIELDS = {
 OPTIONAL_FIELDS = set(DOCUMENT_FIELDS) - {"invoice_number", "invoice_date", "vendor_name", "total_amount"}
 # Category is assigned by application rules, rather than found verbatim in the invoice.
 DERIVED_FIELDS = {"category"}
-PLACEHOLDERS = {"", "-", "--", "—", "n/a", "na", "none", "null", "unknown", "not specified", "not available"}
+PLACEHOLDERS = {"", "-", "--", "—", "n/a", "na", "none", "null", "unknown", "unknown vendor", "not extracted", "not specified", "not available"}
 
 
 def _norm(value: Any) -> str:
@@ -132,7 +132,9 @@ def _issues_for_field(field: str, issues: list[str]) -> list[str]:
         "line_items": ("line item", "items", "quantity", "unit price"),
     }
     phrases = aliases.get(field, (field.replace("_", " "),))
-    return [str(issue) for issue in issues if any(p in str(issue).lower() for p in phrases)]
+    return [str(issue) for issue in issues if any(
+        p in str(issue).lower().replace("_", " ") for p in phrases
+    )]
 
 
 def build_field_evidence(
@@ -235,6 +237,14 @@ def build_field_evidence(
             except (ValueError, KeyError, TypeError, OverflowError):
                 problems.append("Line item arithmetic could not be checked.")
                 score -= .12
+        # Future-dated invoices need an explicit field warning even when the
+        # date appears clearly in OCR. A clear reading can still be invalid.
+        if field == "invoice_date" and item is None:
+            try:
+                if date.fromisoformat(str(value)[:10]) > date.today():
+                    problems.append("Invoice date is in the future; verify against the source invoice.")
+            except (ValueError, TypeError):
+                pass
         if problems:
             score -= .28
         if handwritten:

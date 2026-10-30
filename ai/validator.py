@@ -1,7 +1,8 @@
 """Validates the JSON returned by the LLM before it becomes an Invoice model."""
 import re
-import math
 from datetime import datetime, date
+from utils.data_quality import is_missing, finite_number
+from parser.currency_parser import _ISO_CODES
 from config.constants import REQUIRED_FIELDS
 
 _NET_TERMS_RE = re.compile(r"net\s*[:\-]?\s*(\d{1,3})\b", re.IGNORECASE)
@@ -104,41 +105,15 @@ def _amount_appears_in_ocr_text(ocr_text: str, value: float) -> bool:
 
 
 def _longest_consonant_run(text: str) -> int:
-    letters = re.sub(r"[^A-Za-z]", "", text or "").upper()
+    letters = re.sub(r"[^A-Za-z]", " ", text or "").upper()
     best = current = 0
     for ch in letters:
-        if ch in _VOWELS:
+        if ch in _VOWELS or ch == " ":
             current = 0
         else:
             current += 1
             best = max(best, current)
     return best
-
-
-_MISSING_VALUE_TOKENS = {"-", "--", "—", "n/a", "na", "none", "null", "not available", "not specified", "unknown", "tbd"}
-
-
-def _is_missing_required_value(value) -> bool:
-    """Treat common OCR/LLM placeholder strings as missing required data.
-
-    A literal hyphen is not evidence that a mandatory invoice field was found;
-    accepting it caused incomplete records to look successfully processed.
-    """
-    if value is None or value == []:
-        return True
-    if isinstance(value, str):
-        normalized = re.sub(r"\s+", " ", value).strip().lower()
-        return not normalized or normalized in _MISSING_VALUE_TOKENS
-    return False
-
-
-def _finite_number(value) -> float | None:
-    """Return a finite numeric value, or None for malformed/NaN/infinite data."""
-    try:
-        number = float(value)
-    except (TypeError, ValueError, OverflowError):
-        return None
-    return number if math.isfinite(number) else None
 
 
 def validate_extraction(
@@ -150,53 +125,53 @@ def validate_extraction(
     if not isinstance(data, dict):
         return ["Response is not a JSON object."]
 
+    issues.extend(data.get("_normalization_issues") or [])
     for field in REQUIRED_FIELDS:
-        if field not in data or _is_missing_required_value(data[field]):
+        if field not in data or is_missing(data[field]):
             issues.append(f"Missing required field: '{field}'")
 
-    # Dates that are absent are review issues through REQUIRED_FIELDS (for
-    # invoice_date) but are still saveable. Malformed/future transaction dates
-    # must likewise force review rather than crashing Pydantic later.
-    parsed_dates = {}
     for field in ("invoice_date", "due_date"):
         value = data.get(field)
-        if not value:
-            continue
-        try:
-            parsed_dates[field] = datetime.fromisoformat(str(value)).date()
-        except (TypeError, ValueError):
-            issues.append(f"{field} '{value}' is not a valid calendar date")
-    if parsed_dates.get("invoice_date") and parsed_dates["invoice_date"] > date.today():
-        issues.append(f"invoice_date {parsed_dates['invoice_date'].isoformat()} is in the future")
+        if not is_missing(value):
+            try:
+                parsed_date = date.fromisoformat(str(value))
+                if field == "invoice_date" and parsed_date > date.today():
+                    issues.append("invoice_date is in the future")
+            except (ValueError, TypeError):
+                issues.append(f"{field} must be a valid YYYY-MM-DD date")
+    for field in ("subtotal", "tax_amount", "total_amount", "discount", "withholding_tax",
+                  "zero_rated_sales", "vat_exempt_sales", "current_charges_total", "previous_balance"):
+        value = data.get(field)
+        if value is not None:
+            number = finite_number(value)
+            if number is None:
+                issues.append(f"{field} must be a finite numeric value")
+            elif number < 0 and field != "previous_balance":
+                issues.append(f"{field} must not be negative")
+    tax_value = finite_number(data.get("tax_amount"))
+    total_value = finite_number(data.get("total_amount"))
+    if tax_value is not None and total_value is not None and tax_value > total_value:
+        issues.append("tax_amount exceeds total_amount")
+
+    # Negative payable totals on utility/telecom statements may reflect credits,
+    # but when component arithmetic disagrees they require explicit review.
+    gross = finite_number(data.get("subtotal"))
+    payable = finite_number(data.get("total_amount"))
+    if payable is not None and payable < 0 and gross is not None and gross >= 0:
+        current = finite_number(data.get("current_charges_total"))
+        prior = finite_number(data.get("previous_balance"))
+        if current is None or prior is None or abs(current + prior - payable) > 0.05:
+            issues.append("Total Amount Due calculation needs review: negative payable amount does not reconcile with the reported charges and previous balance.")
 
     total = data.get("total_amount")
     total_f = None
     if total is not None:
-        total_f = _finite_number(total)
-        if total_f is None:
-            issues.append("total_amount must be a finite numeric value")
-        elif total_f < 0:
-            issues.append(
-                "Total Amount Due is negative. The document may be showing a credit or overpayment, "
-                "but the payable total must be checked against the previous balance, payments and "
-                "current charges before approval; do not treat it as a confirmed amount to pay."
-            )
-
-    if total_f is not None and data.get("tax_amount") is not None:
-        tax_f = _finite_number(data.get("tax_amount"))
-        if tax_f is None:
-            issues.append("tax_amount must be a finite numeric value")
-        else:
-            if tax_f < 0:
-                issues.append("tax_amount cannot be negative")
-            if total_f >= 0 and tax_f > total_f + 0.01:
-                issues.append(f"tax_amount ({tax_f:.2f}) cannot exceed total_amount ({total_f:.2f})")
-
-    for field in ("subtotal", "discount", "withholding_tax", "zero_rated_sales",
-                  "vat_exempt_sales", "current_charges_total", "previous_balance"):
-        value = data.get(field)
-        if value is not None and _finite_number(value) is None:
-            issues.append(f"{field} must be a finite numeric value")
+        try:
+            total_f = float(total)
+            if total_f <= 0:
+                issues.append("total_amount must be greater than 0")
+        except (TypeError, ValueError):
+            issues.append("total_amount is not numeric")
 
     # Anti-hallucination check: the printed total is a real number sitting
     # somewhere on the page, so a correctly-read total_amount should appear
@@ -235,8 +210,6 @@ def validate_extraction(
     # populated look like its numbers "don't add up".
     zero_rated = data.get("zero_rated_sales") or 0
     vat_exempt = data.get("vat_exempt_sales") or 0
-    # Use a fixed five-cent rounding tolerance, not five percent: percentage
-    # tolerances silently accept material errors in small bills and receipts.
     # 1.55: billing statements may carry a previous balance. Validate current-period
     # accounting against current_charges_total, then separately check that the
     # payable total includes the carried balance. Ordinary invoices still use
@@ -248,23 +221,19 @@ def validate_extraction(
         try:
             computed = float(subtotal) + float(tax) + float(zero_rated) + float(vat_exempt) - float(discount) - float(withholding_tax)
             target_f = float(accounting_target)
-            if abs(computed - target_f) > 0.05:
+            if abs(computed - target_f) > 0.02:
                 target_name = "current_charges_total" if current_charges_total is not None else "total_amount"
                 issues.append(
                     f"subtotal ({subtotal}) + tax ({tax}) + zero-rated ({zero_rated}) "
                     f"+ vat-exempt ({vat_exempt}) - discount ({discount}) - withholding tax ({withholding_tax}) = {computed:.2f}, "
                     f"which does not match {target_name} ({accounting_target})"
                 )
-            # Meralco QA ground truth: total_amount is the current bill amount; the carried
-            # balance stays in previous_balance, so this identity does not apply.
-            if template_name != "meralco" and current_charges_total is not None and previous_balance is not None and total is not None:
+            if current_charges_total is not None and previous_balance is not None and total is not None:
                 payable = round(float(current_charges_total) + float(previous_balance), 2)
-                if abs(payable - float(total)) > 0.05:
+                if abs(payable - float(total)) > 0.02:
                     issues.append(
-                        f"Total Amount Due calculation needs review: current_charges_total ({current_charges_total}) "
-                        f"+ previous_balance ({previous_balance}) = {payable:.2f}, "
-                        f"which does not match total_amount/Amount to Pay ({total}). "
-                        "This may require additional payments/credits not yet extracted; confirm against the document."
+                        f"current_charges_total ({current_charges_total}) + previous_balance ({previous_balance}) "
+                        f"= {payable:.2f}, which does not match total_amount/Amount to Pay ({total})"
                     )
         except (TypeError, ValueError):
             issues.append("subtotal/tax/deductions are not numeric")
@@ -293,8 +262,8 @@ def validate_extraction(
             pass
 
     currency = data.get("currency")
-    if currency and (not isinstance(currency, str) or len(currency) != 3):
-        issues.append("currency must be a 3-letter ISO code")
+    if currency and (not isinstance(currency, str) or currency not in _ISO_CODES):
+        issues.append("currency must be a supported 3-letter ISO code")
 
     invoice_number = data.get("invoice_number")
     if invoice_number and isinstance(invoice_number, str):
@@ -373,26 +342,30 @@ def validate_extraction(
     if line_items is not None and not isinstance(line_items, list):
         issues.append("line_items must be a list")
     elif isinstance(line_items, list):
-        for index, li in enumerate(line_items, start=1):
+        invalid_rows = [li for li in line_items if not isinstance(li, dict)]
+        if invalid_rows:
+            issues.append("line_items contains non-object rows")
+        line_items = [li for li in line_items if isinstance(li, dict)]
+        for index, li in enumerate(line_items, 1):
             if not isinstance(li, dict):
-                issues.append(f"line_items[{index - 1}] must be an object with description/quantity/unit_price/amount fields")
+                issues.append(f"line_items row {index} must be an object")
                 continue
-            desc = str(li.get("description") or "").strip()
+            for field in ("quantity", "unit_price", "amount"):
+                number = finite_number(li.get(field))
+                if number is None:
+                    issues.append(f"line_items row {index} {field} must be finite and numeric")
+                elif number < 0 and not (field in {"unit_price", "amount"} and
+                    re.search(r"(?i)\b(?:remaining balance|previous balance|carried balance|balance forward|credits?|adjustments?|discounts?|subsidies|rebates?)\b",
+                              str(li.get("description") or ""))):
+                    issues.append(f"line_items row {index} {field} must not be negative")
+            q, p, a = (finite_number(li.get(f)) for f in ("quantity", "unit_price", "amount"))
+            if all(v is not None for v in (q, p, a)) and abs(round(q * p, 2) - a) > 0.02:
+                issues.append(f"line_items row {index}: quantity * unit_price does not match amount")
+            if is_missing(li.get("description")):
+                issues.append(f"line_items row {index} description is missing")
+            desc = str((li or {}).get("description") or "").strip()
             if not desc:
                 continue
-            for amount_field in ("quantity", "unit_price", "amount"):
-                value = li.get(amount_field)
-                if value is None:
-                    continue
-                numeric_value = _finite_number(value)
-                if numeric_value is None:
-                    issues.append(f"line item '{desc or index}' has non-finite or non-numeric {amount_field}: {value}")
-                elif numeric_value < 0:
-                    # A printed credit/adjustment or carried credit balance is
-                    # legitimately negative, unlike merchandise qty/price.
-                    credit = re.search(r"(?i)\b(?:adjustments?|credits?|remaining balance|previous balance|balance forward)\b", desc)
-                    if not (credit and amount_field in ("amount", "unit_price")):
-                        issues.append(f"line item '{desc or index}' has negative {amount_field}: {value}")
             if _BARE_NUMBER_DESCRIPTION_RE.match(desc):
                 issues.append(
                     f"line item description '{desc}' is just a number/code, not a product "
@@ -434,15 +407,14 @@ def validate_extraction(
         # corrupting the subtotal reconciliation below.
         if len(line_items) >= 2:
             try:
-                amounts = [float(li.get("amount", 0) or 0) for li in line_items if isinstance(li, dict)]
-                if len(amounts) != len(line_items):
-                    raise ValueError("malformed line item")
+                sale_rows = [li for li in line_items if str(li.get("description") or "").strip().lower() not in {"remaining balance", "previous balance", "carried balance", "balance forward"}]
+                amounts = [float(li.get("amount", 0) or 0) for li in sale_rows]
                 for i, amt in enumerate(amounts):
                     if amt <= 0:
                         continue
                     others_sum = sum(a for j, a in enumerate(amounts) if j != i)
                     if others_sum > 0 and abs(amt - others_sum) < 0.01:
-                        desc = (line_items[i].get("description") or "").strip()
+                        desc = (sale_rows[i].get("description") or "").strip()
                         issues.append(
                             f"line item '{desc}' ({amt:.2f}) equals the sum of every other "
                             f"line item combined — this is almost always a printed category "
@@ -461,17 +433,25 @@ def validate_extraction(
             # while the line-item amounts are the transaction prices and the
             # printed discount bridges line-items to Amount To Pay. The
             # Watsons-specific validation below checks that exact identity.
-            # Meralco: line items are VAT-inclusive charge groups that sum to the
-            # current charges; `subtotal` is the VAT Sales base. Pushing the model to
-            # make them equal is what produced a wrong subtotal, so skip this check.
-            if template_name in ("watsons", "meralco"):
+            if template_name == "watsons":
                 pass
             else:
                 try:
-                    current_items = [li for li in line_items if isinstance(li, dict) and str(li.get("description") or "").strip().lower() not in {"remaining balance", "previous balance", "carried balance", "balance forward"}]
+                    current_items = [li for li in line_items if str((li or {}).get("description") or "").strip().lower() not in {"remaining balance", "previous balance", "carried balance", "balance forward"}]
                     items_sum = sum(float(li.get("amount", 0) or 0) for li in current_items)
-                    subtotal_f = float(subtotal)
-                    if subtotal_f and abs(items_sum - subtotal_f) > 0.05 * subtotal_f:
+                    subtotal_f = float(data.get(data["_line_items_basis"])) if data.get("_line_items_basis") in {"current_charges_total", "total_amount"} else float(subtotal)
+                    # A current-bill adjustment can reduce the invoiced
+                    # current charge while pre-adjustment vatable sales remain
+                    # printed separately. Check the independent payable
+                    # identity before issuing a misleading line-item warning.
+                    current_bill = finite_number(data.get("current_charges_total"))
+                    stated_vat = finite_number(data.get("tax_amount"))
+                    adjustment_bridge = (
+                        any(re.search(r"(?i)adjustments?\s*[-–]?\s*current\s*bill", str(x.get("description") or "")) for x in current_items)
+                        and current_bill is not None and stated_vat is not None
+                        and abs(items_sum + stated_vat - current_bill) <= .02
+                    )
+                    if abs(items_sum - subtotal_f) > 0.02 and not adjustment_bridge:
                         issues.append(
                             f"line_items sum to {items_sum:.2f}, which does not match "
                             f"subtotal ({subtotal_f}) â€” subtotal may have been misread "

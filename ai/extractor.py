@@ -9,6 +9,7 @@ import time
 import re
 import json
 from copy import deepcopy
+from ai.processing_budget import remaining_timeout, model_scope, processing_scope, ModelBudgetExceeded
 import requests
 from config.settings import settings
 from config.logging import get_logger
@@ -51,11 +52,14 @@ def _call_ollama(prompt: str, trace_attempt: dict | None = None) -> str:
     try:
         return _call_openrouter(prompt, trace_attempt)
     except ExtractionError as first_error:
-        llm_client.note_openrouter_failure(first_error)
+        if not isinstance(first_error.__cause__, ModelBudgetExceeded):
+            llm_client.note_openrouter_failure(first_error)
         logger.warning(f"{llm_client.label()} failed ({first_error}); falling back to local Ollama")
         if trace_attempt is not None:
-            trace_attempt.pop("timeout_attempts", None)
-            trace_attempt["fallback_from"] = {"provider": "openrouter", "error": str(first_error)[:500]}
+            trace_attempt["api_attempt"] = {k: v for k, v in trace_attempt.items() if k != "prompt"}
+            for key in ("timeout_attempts", "error", "error_kind", "http_status", "response_body"):
+                trace_attempt.pop(key, None)
+            trace_attempt["fallback_from"] = {"provider": llm_client.provider_name(), "model": settings.OPENROUTER_MODEL, "error": str(first_error)[:500]}
         try:
             return _call_local_ollama(prompt, trace_attempt)
         except ExtractionError as second_error:
@@ -64,6 +68,7 @@ def _call_ollama(prompt: str, trace_attempt: dict | None = None) -> str:
             ) from second_error
 
 
+@model_scope("api_text")
 def _call_openrouter(prompt: str, trace_attempt: dict | None = None) -> str:
     model = settings.OPENROUTER_MODEL
     payload = llm_client.chat_payload(
@@ -71,7 +76,7 @@ def _call_openrouter(prompt: str, trace_attempt: dict | None = None) -> str:
     )
     if trace_attempt is not None:
         trace_attempt.update({
-            "endpoint": "/chat/completions", "provider": "openrouter", "model": model,
+            "endpoint": llm_client.openrouter_url(), "provider": llm_client.provider_name(), "model": model,
             "prompt": prompt, "request_format": "json",
         })
     timeout_s = settings.OPENROUTER_TIMEOUT_SECONDS
@@ -81,6 +86,11 @@ def _call_openrouter(prompt: str, trace_attempt: dict | None = None) -> str:
         # *correction* keeps the old behaviour: caller retains the last usable extraction.
         strict = (trace_attempt or {}).get("kind", "initial") == "initial"
         raw, usage, resp = llm_client.request_openrouter(payload, timeout_s, expect_json=True, strict=strict)
+    except ModelBudgetExceeded as e:
+        if trace_attempt is not None:
+            trace_attempt["error"] = str(e)
+            trace_attempt["error_kind"] = "budget_exhausted"
+        raise ExtractionError(str(e)) from e
     except requests.exceptions.Timeout as e:
         elapsed = time.perf_counter() - start
         if trace_attempt is not None:
@@ -104,22 +114,7 @@ def _call_openrouter(prompt: str, trace_attempt: dict | None = None) -> str:
     return raw
 
 
-def _warn_if_prompt_truncated(body: dict, trace_attempt: dict | None) -> None:
-    """Ollama silently truncates a prompt that doesn't fit its context window and reports the window size as the
-    number of prompt tokens it evaluated. Make that visible: it is the kind of failure that otherwise only shows up
-    as 'the invoice was accepted but fields were extracted wrongly'. (Best-effort: with prompt caching Ollama can
-    under-report prompt_eval_count, so a missing warning does not prove nothing was cut.)"""
-    used = body.get("prompt_eval_count")
-    ctx = settings.OLLAMA_NUM_CTX
-    if isinstance(used, int) and ctx and used >= ctx - 8:
-        logger.warning(
-            f"Ollama evaluated {used} prompt tokens with a {ctx}-token context window: the prompt was almost "
-            f"certainly truncated and extraction quality will suffer. Raise OLLAMA_NUM_CTX."
-        )
-        if trace_attempt is not None:
-            trace_attempt["possible_prompt_truncation"] = True
-
-
+@model_scope("local_text")
 def _call_local_ollama(prompt: str, trace_attempt: dict | None = None) -> str:
     """Original local-Ollama request, unchanged."""
     url = f"{settings.OLLAMA_HOST}/api/generate"
@@ -129,14 +124,13 @@ def _call_local_ollama(prompt: str, trace_attempt: dict | None = None) -> str:
         "stream": False,
         "format": "json",  # strongly reduces prose/fenced-code invalid-JSON failures
         "keep_alive": settings.OLLAMA_KEEP_ALIVE,
-        "options": {"temperature": settings.LLM_TEMPERATURE, "num_ctx": settings.OLLAMA_NUM_CTX,
-                    "num_predict": settings.OLLAMA_NUM_PREDICT},
+        "options": {"temperature": settings.LLM_TEMPERATURE, "num_predict": settings.LLM_MAX_TOKENS, "num_ctx": settings.LLM_CONTEXT_TOKENS},
     }
 
     if trace_attempt is not None:
         trace_attempt.update({
             "endpoint": "/api/generate",
-            "num_ctx": settings.OLLAMA_NUM_CTX,
+            "provider": "ollama",
             "model": settings.OLLAMA_MODEL,
             "prompt": prompt,
             "request_format": "json",
@@ -147,7 +141,7 @@ def _call_local_ollama(prompt: str, trace_attempt: dict | None = None) -> str:
     for attempt in range(1, attempts + 1):
         start = time.perf_counter()
         try:
-            resp = requests.post(url, json=payload, timeout=settings.OLLAMA_TIMEOUT_SECONDS)
+            resp = requests.post(url, json=payload, timeout=remaining_timeout(settings.OLLAMA_TIMEOUT_SECONDS))
             elapsed = time.perf_counter() - start
             if trace_attempt is not None:
                 trace_attempt["http_status"] = resp.status_code
@@ -158,8 +152,12 @@ def _call_local_ollama(prompt: str, trace_attempt: dict | None = None) -> str:
             if trace_attempt is not None:
                 trace_attempt["raw_response"] = raw
                 trace_attempt["usage"] = _usage_from_ollama(body)
-            _warn_if_prompt_truncated(body, trace_attempt)
             return raw
+        except ModelBudgetExceeded as e:
+            if trace_attempt is not None:
+                trace_attempt["error"] = str(e)
+                trace_attempt["error_kind"] = "budget_exhausted"
+            raise ExtractionError(str(e)) from e
         except requests.exceptions.Timeout as e:
             elapsed = time.perf_counter() - start
             last_error = e
@@ -180,34 +178,12 @@ def _call_local_ollama(prompt: str, trace_attempt: dict | None = None) -> str:
 
     raise ExtractionError(
         f"Ollama request timed out after {attempts} attempt(s), "
-        f"{settings.OLLAMA_TIMEOUT_SECONDS}s each."
+        f"configured request limit={settings.OLLAMA_TIMEOUT_SECONDS}s; {last_error}"
     ) from last_error
 
 
-def _looks_like_meralco(ocr_text: str) -> bool:
-    """Backstop when utils.invoice_template_detector does not recognise a Meralco bill."""
-    t = str(ocr_text or "")
-    return bool(re.search(r"(?i)meralco", t) and re.search(r"(?i)ELECTRIC\s*BILL|EB\s*Invoice", t))
-
-
-def _apply_meralco_template(parsed: dict, ocr_text: str, ocr_lines, trace: dict) -> dict:
-    """Deterministic Meralco rules (bill date, customer TIN, VAT block, addresses,
-    carried balance). Runs after the LLM loop so the model cannot undo them."""
-    from ai.invoice_templates.meralco import normalize_meralco_extraction
-    try:
-        fixed, notes = normalize_meralco_extraction(parsed, ocr_text, ocr_lines)
-    except Exception as exc:  # never lose a good extraction to a template bug
-        logger.warning(f"Meralco template post-processing failed: {exc}")
-        trace["meralco_template_error"] = str(exc)
-        return parsed
-    trace["meralco_template_notes"] = notes
-    for n in notes:
-        logger.info(n)
-    return fixed
-
-
-def extract_invoice_data(ocr_text: str, template_name: str | None = None, trace: dict | None = None,
-                         ocr_lines: list | None = None) -> dict:
+@processing_scope
+def extract_invoice_data(ocr_text: str, template_name: str | None = None, trace: dict | None = None) -> dict:
     """Run extraction + validation/correction loop.
 
     ``trace`` is optional and backward-compatible. When provided it is
@@ -225,10 +201,6 @@ def extract_invoice_data(ocr_text: str, template_name: str | None = None, trace:
 
     if template_name is None:
         template_name = detect_invoice_template(ocr_text)
-    # utils.invoice_template_detector returns "generic" (not None) when it is not confident,
-    # so treat both as "no template" before the Meralco backstop.
-    if template_name in (None, "", "generic") and _looks_like_meralco(ocr_text):
-        template_name = "meralco"
     trace["template_name"] = template_name
     logger.info(f"Invoice template selected: {template_name}")
 
@@ -239,9 +211,9 @@ def extract_invoice_data(ocr_text: str, template_name: str | None = None, trace:
     parsed = safe_json_loads(raw_response)
     initial["parsed_json"] = parsed
 
-    if parsed is None:
-        trace["error"] = "LLM did not return valid JSON"
-        raise ExtractionError("LLM did not return valid JSON.")
+    if not isinstance(parsed, dict) or not any(key in parsed for key in ("invoice_number", "vendor_name", "total_amount")):
+        trace["error"] = "LLM did not return an invoice JSON object"
+        raise ExtractionError("LLM did not return a valid invoice JSON object.")
 
     # Use existing rules before asking the model to repair already-resolvable noise.
     from ai.post_processing import post_process, clean_line_items
@@ -254,6 +226,8 @@ def extract_invoice_data(ocr_text: str, template_name: str | None = None, trace:
         return normalized
 
     parsed = prepare(parsed)
+    from ai.statement_evidence import reconcile_statement_evidence
+    parsed, _ = reconcile_statement_evidence(parsed, ocr_text)
     previous_issue_fingerprint = None
     seen_results = {json.dumps(parsed, sort_keys=True, default=str)}
     for attempt in range(settings.LLM_MAX_RETRIES):
@@ -283,11 +257,16 @@ def extract_invoice_data(ocr_text: str, template_name: str | None = None, trace:
         correction_prompt = build_correction_prompt(ocr_text, parsed, issues, template_name=template_name)
         corr_trace = {"kind": "correction", "correction_number": attempt + 1, "issues_given_to_model": list(issues)}
         trace["attempts"].append(corr_trace)
-        raw_response = _call_ollama(correction_prompt, corr_trace)
+        try:
+            raw_response = _call_ollama(correction_prompt, corr_trace)
+        except ExtractionError as exc:
+            trace["stopped_on_failed_correction"] = str(exc)
+            break  # Keep the usable initial result and expose remaining validation issues.
         corrected = safe_json_loads(raw_response)
         corr_trace["parsed_json"] = corrected
         if isinstance(corrected, dict) and corrected:
             corrected = prepare(corrected)
+            corrected, _ = reconcile_statement_evidence(corrected, ocr_text)
             fingerprint = json.dumps(corrected, sort_keys=True, default=str)
             if fingerprint in seen_results:
                 trace["stopped_on_repeated_result"] = {"attempt": attempt + 1, "reason": "correction repeated a previously seen normalized result"}
@@ -298,8 +277,6 @@ def extract_invoice_data(ocr_text: str, template_name: str | None = None, trace:
             trace["stopped_on_invalid_correction"] = {"attempt": attempt + 1, "reason": "correction returned no usable object; retained last usable extraction"}
             break
 
-    if template_name == "meralco":
-        parsed = _apply_meralco_template(parsed, ocr_text, ocr_lines, trace)
     trace["final_validation_issues"] = validate_extraction(parsed, template_name=template_name, ocr_text=ocr_text)
     trace["final_parsed_json"] = parsed
     return parsed

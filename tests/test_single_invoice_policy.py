@@ -6,7 +6,7 @@ from services.invoice_service import process_invoice_file
 
 def test_two_separate_invoices_rejected_before_persistence():
     invoices = [SimpleNamespace(invoice_number='A'), SimpleNamespace(invoice_number='B')]
-    with patch('services.invoice_service.parse_invoice_pages_detailed', return_value=(invoices, [])), \
+    with patch('services.invoice_service.parse_invoice_pages', return_value=invoices), \
          patch('services.invoice_service.SessionLocal') as session:
         result = process_invoice_file('/tmp/batch.pdf', original_filename='batch.pdf')
     assert len(result) == 1

@@ -264,7 +264,7 @@ def _search_via_ollama(prompt: str) -> str:
         "stream": False,
         "format": "json",
         "keep_alive": settings.OLLAMA_KEEP_ALIVE,
-        "options": {"temperature": 0.0, "num_predict": settings.SEARCH_NUM_PREDICT},
+        "options": {"temperature": 0.0},
     }
     try:
         response = requests.post(url, json=payload, timeout=settings.SEARCH_LLM_TIMEOUT_SECONDS)

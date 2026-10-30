@@ -1,0 +1,138 @@
+{
+  "qa_tests": {
+    "passed": 62,
+    "failed": 0
+  },
+  "full_suite": {
+    "passed": 373,
+    "failed": 6,
+    "baseline_failures": 6
+  },
+  "migration": {
+    "status": "passed",
+    "init_runs": 2,
+    "counts_before_after": {
+      "vendors": 0,
+      "custom_categories": 0,
+      "audit_logs": 2,
+      "users": 1,
+      "invoices": 0,
+      "browser_login_sessions": 2,
+      "line_items": 0
+    },
+    "invoice_id_number_total_preserved": true,
+    "line_items_preserved": true,
+    "integrity": "ok",
+    "compileall": "passed"
+  },
+  "pdf_live": [
+    {
+      "file": "INV-01.pdf",
+      "seconds": 7.2189999999827705,
+      "invoices": [
+        {
+          "invoice_number": "4230011264445",
+          "invoice_date": "2020-01-10",
+          "subtotal": 884.27,
+          "tax_amount": 98.63,
+          "total_amount": 2543.07,
+          "current_charges_total": 1034.55,
+          "previous_balance": 1508.52,
+          "status": "processed",
+          "validation_issues": []
+        }
+      ]
+    },
+    {
+      "file": "INV-04.pdf",
+      "seconds": 8.40600000001723,
+      "invoices": [
+        {
+          "invoice_number": "0434287913",
+          "invoice_date": "2020-03-07",
+          "subtotal": 1159.82,
+          "tax_amount": 139.18,
+          "total_amount": 1289.0,
+          "current_charges_total": 1299.0,
+          "previous_balance": -10.0,
+          "status": "processed",
+          "validation_issues": []
+        }
+      ]
+    }
+  ],
+  "ocr_live": [
+    {
+      "avg_confidence": 0.9655,
+      "engine": "paddleocr",
+      "original_image_path": "work\\invoices\\INV-02.png",
+      "oriented_image_path": "work\\invoices\\INV-02.png",
+      "processed_image_path": "C:\\Users\\Ben\\Documents\\Codex\\2026-10-13\\we-x20\\work\\ocr-temp\\pre_INV-02.png",
+      "orientation_quarter_turns": 0,
+      "seconds": 6.98399999999674
+    },
+    {
+      "avg_confidence": 0.9352,
+      "engine": "paddleocr",
+      "original_image_path": "work\\invoices\\INV-07.jpg",
+      "oriented_image_path": "C:\\Users\\Ben\\Documents\\Codex\\2026-10-13\\we-x20\\work\\ocr-temp\\oriented_INV-07.jpg",
+      "processed_image_path": "C:\\Users\\Ben\\Documents\\Codex\\2026-10-13\\we-x20\\work\\ocr-temp\\pre_oriented_INV-07.jpg",
+      "orientation_quarter_turns": 3,
+      "seconds": 11.23399999999674
+    },
+    {
+      "avg_confidence": 0.9445,
+      "engine": "paddleocr",
+      "original_image_path": "work\\invoices\\INV-08.jpg",
+      "oriented_image_path": "C:\\Users\\Ben\\Documents\\Codex\\2026-10-13\\we-x20\\work\\ocr-temp\\oriented_INV-08.jpg",
+      "processed_image_path": "C:\\Users\\Ben\\Documents\\Codex\\2026-10-13\\we-x20\\work\\ocr-temp\\pre_oriented_INV-08.jpg",
+      "orientation_quarter_turns": 2,
+      "seconds": 10.078999999997905
+    },
+    {
+      "avg_confidence": 0.9442,
+      "engine": "paddleocr",
+      "original_image_path": "work\\invoices\\INV-09.jpg",
+      "oriented_image_path": "work\\invoices\\INV-09.jpg",
+      "processed_image_path": "C:\\Users\\Ben\\Documents\\Codex\\2026-10-13\\we-x20\\work\\ocr-temp\\pre_INV-09.jpg",
+      "orientation_quarter_turns": 0,
+      "seconds": 7.85899999999674
+    },
+    {
+      "avg_confidence": 0.8746,
+      "engine": "paddleocr",
+      "original_image_path": "work\\invoices\\INV-10.jpeg",
+      "oriented_image_path": "work\\invoices\\INV-10.jpeg",
+      "processed_image_path": "work\\invoices\\INV-10.jpeg",
+      "orientation_quarter_turns": 0,
+      "seconds": 2.4690000000118744
+    },
+    {
+      "avg_confidence": 0.8611,
+      "engine": "paddleocr",
+      "original_image_path": "work\\invoices\\INV-11.jpeg",
+      "oriented_image_path": "work\\invoices\\INV-11.jpeg",
+      "processed_image_path": "C:\\Users\\Ben\\Documents\\Codex\\2026-10-13\\we-x20\\work\\ocr-temp\\pre_INV-11.jpeg",
+      "orientation_quarter_turns": 0,
+      "seconds": 1.5469999999913853
+    },
+    {
+      "avg_confidence": 0.9649,
+      "engine": "paddleocr",
+      "original_image_path": "work\\invoices\\INV-13.png",
+      "oriented_image_path": "work\\invoices\\INV-13.png",
+      "processed_image_path": "C:\\Users\\Ben\\Documents\\Codex\\2026-10-13\\we-x20\\work\\ocr-temp\\pre_INV-13.png",
+      "orientation_quarter_turns": 0,
+      "seconds": 11.125
+    },
+    {
+      "avg_confidence": 0.9432,
+      "engine": "paddleocr",
+      "original_image_path": "work\\invoices\\INV-22.jpg",
+      "oriented_image_path": "work\\invoices\\INV-22.jpg",
+      "processed_image_path": "C:\\Users\\Ben\\Documents\\Codex\\2026-10-13\\we-x20\\work\\ocr-temp\\pre_INV-22.jpg",
+      "orientation_quarter_turns": 0,
+      "seconds": 9.046000000002095
+    }
+  ]
+}

@@ -5,23 +5,17 @@ raw OCR quality alone. Successful reconciliation notes are not penalties.
 """
 from __future__ import annotations
 from config.constants import REQUIRED_FIELDS
-from ai.field_evidence import build_field_evidence
 from config.settings import settings
 from models.prediction import Prediction, FieldConfidence
 from utils.helpers import clamp
+from utils.data_quality import is_missing
+from ai.field_evidence import build_field_evidence
 
 HANDWRITING_CONFIDENCE_PENALTY = 0.35
 
 def _num(v):
     try: return float(v) if v is not None else None
     except (TypeError, ValueError): return None
-
-def _present(v):
-    if v is None or v == []:
-        return False
-    if isinstance(v, str):
-        return v.strip().lower() not in {"", "-", "--", "—", "n/a", "na", "none", "null", "not available", "not specified", "unknown", "tbd"}
-    return True
 
 def _financial_consistency(d):
     sub=_num(d.get("subtotal")); total=_num(d.get("total_amount"))
@@ -38,24 +32,22 @@ def _financial_consistency(d):
 def _line_item_consistency(d):
     checked=ok=0
     for li in d.get("line_items") or []:
-        if not isinstance(li, dict):
-            continue
-        desc=str(li.get("description") or "").strip().lower()
+        desc=str((li or {}).get("description") or "").strip().lower()
         if desc in {"remaining balance","previous balance","carried balance","balance forward"}: continue
-        q=_num(li.get("quantity")); p=_num(li.get("unit_price")); a=_num(li.get("amount"))
+        q=_num((li or {}).get("quantity")); p=_num((li or {}).get("unit_price")); a=_num((li or {}).get("amount"))
         if q is None or p is None or a is None or q<=0 or p<0 or a<0: continue
         checked+=1
         if abs(q*p-a)<=max(0.05,abs(a)*0.01): ok+=1
     return None if not checked else ok==checked
 
-def score_extraction(extracted: dict, ocr_avg_confidence: float, validation_issues: list[str], ocr_engine: str | None=None, *, ocr_text: str = "", ocr_lines: list[dict] | None = None) -> Prediction:
+def score_extraction(extracted: dict, ocr_avg_confidence: float, validation_issues: list[str], ocr_engine: str | None=None, ocr_text: str = "", ocr_lines: list[dict] | None = None) -> Prediction:
     ocr=clamp(float(ocr_avg_confidence or 0.0)); issue_text=" ".join(str(x).lower() for x in validation_issues)
     financial_ok,billing_ok=_financial_consistency(extracted); items_ok=_line_item_consistency(extracted)
     fields=list(dict.fromkeys(REQUIRED_FIELDS+["vendor_tax_id","customer_name","customer_address","subtotal","tax_amount","discount","withholding_tax","zero_rated_sales","vat_exempt_sales","current_charges_total","previous_balance"]))
     fcs=[]
     financial_fields={"subtotal","tax_amount","discount","withholding_tax","zero_rated_sales","vat_exempt_sales","current_charges_total","previous_balance","total_amount"}
     for field in fields:
-        value=extracted.get(field); present=_present(value)
+        value=extracted.get(field); present=not is_missing(value)
         if not present:
             fcs.append(FieldConfidence(field=field,value=value,confidence=0.0,source="missing")); continue
         conf=0.66+0.20*ocr; hit=field.lower() in issue_text
@@ -67,7 +59,7 @@ def score_extraction(extracted: dict, ocr_avg_confidence: float, validation_issu
         if field in {"invoice_number","invoice_date","vendor_name","vendor_tax_id"} and not hit: conf+=0.03
         if hit: conf*=0.58
         fcs.append(FieldConfidence(field=field,value=value,confidence=round(clamp(conf),3),source="final_evidence"))
-    required_present=sum(_present(extracted.get(f)) for f in REQUIRED_FIELDS)
+    required_present=sum(not is_missing(extracted.get(f)) for f in REQUIRED_FIELDS)
     completeness=required_present/max(1,len(REQUIRED_FIELDS))
     overall=0.52+0.20*ocr+0.18*completeness
     if financial_ok is True: overall+=0.07
@@ -87,16 +79,15 @@ def score_extraction(extracted: dict, ocr_avg_confidence: float, validation_issu
         overall -= 0.25 if engine_tags == {"trocr"} else 0.08
     overall=clamp(overall)
     needs_review=overall<settings.CONFIDENCE_THRESHOLD or bool(validation_issues) or handwriting_used
-    # Field support scores are deliberately separate from the legacy overall
-    # invoice score. Each cell gets a traceable OCR/source reason and warning.
     evidence = build_field_evidence(extracted, ocr_text, ocr_lines, validation_issues, ocr_engine)
-    def _field_value(path):
+    # Also expose individual line-item cells to legacy confidence consumers.
+    # The new evidence map remains authoritative for review highlights.
+    for path, meta in evidence.items():
         if not path.startswith("line_items."):
-            return extracted.get(path)
-        _, index, key = path.split(".")
-        return (extracted.get("line_items") or [])[int(index)].get(key)
-    fcs = [FieldConfidence(field=path, value=_field_value(path),
-                           confidence=meta["score"] if meta["score"] is not None else 0.0,
-                           source=meta["source"])
-           for path, meta in evidence.items()]
+            continue
+        _, idx, field = path.split(".")
+        value = (extracted.get("line_items") or [])[int(idx)].get(field)
+        fcs.append(FieldConfidence(field=path, value=value,
+                                   confidence=float(meta.get("score") or 0),
+                                   source=meta.get("source") or "unverified"))
     return Prediction(raw_json=extracted,field_confidences=fcs,overall_confidence=round(overall,3),needs_review=needs_review,warnings=validation_issues,field_evidence=evidence)

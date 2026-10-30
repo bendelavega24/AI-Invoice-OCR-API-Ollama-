@@ -57,7 +57,6 @@ TOTAL_LABELS = (
     "grand total",
     "amount due",
     "amount to pay",
-    "please pay",
     "amount payable",
     "total amount due",
     "total due",

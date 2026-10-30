@@ -15,6 +15,7 @@ import random
 import re
 import time
 
+from ai.processing_budget import remaining_timeout, budget_sleep, ModelBudgetExceeded
 import requests
 
 from config.logging import get_logger
@@ -32,6 +33,13 @@ def label() -> str:
     from urllib.parse import urlparse
     host = urlparse(settings.OPENROUTER_BASE_URL).netloc or settings.OPENROUTER_BASE_URL
     return f"LLM API ({host})"
+
+
+def provider_name():
+    """Actual API host identity; 'openrouter' remains the transport selector."""
+    from urllib.parse import urlparse
+    host = urlparse(settings.OPENROUTER_BASE_URL).hostname or 'unknown-api'
+    return {'openrouter.ai': 'openrouter', 'api.groq.com': 'groq'}.get(host, host)
 
 
 # --- Engine mode (switchable at runtime from the UI sidebar) ------------------
@@ -294,15 +302,6 @@ def request_openrouter(
     url, headers = openrouter_url(), openrouter_headers()
     max_retries = max(0, settings.OPENROUTER_MAX_RETRIES)
     budget = settings.OPENROUTER_RETRY_BUDGET_SECONDS
-    timeout_retries = max(0, settings.OPENROUTER_TIMEOUT_RETRIES)
-    if fallback_enabled():
-        # "Both" mode: local Ollama is the safety net, so don't let a slow/failing API eat minutes first.
-        timeout = min(timeout, settings.LLM_FALLBACK_API_TIMEOUT_SECONDS)
-        max_retries = min(max_retries, max(0, settings.LLM_FALLBACK_API_MAX_RETRIES))
-        budget = min(budget, settings.LLM_FALLBACK_API_BUDGET_SECONDS)
-        timeout_retries = 0
-    # (connect, read): an unreachable host fails fast instead of waiting the whole read timeout.
-    request_timeout = (min(settings.LLM_API_CONNECT_TIMEOUT_SECONDS, timeout), timeout)
     started = time.monotonic()
     history: list[str] = log if log is not None else []
     attempt = timeouts = 0
@@ -316,7 +315,7 @@ def request_openrouter(
         reason = None
         retry_after = None
         try:
-            resp = requests.post(url, json=payload, headers=headers, timeout=request_timeout)
+            resp = requests.post(url, json=payload, headers=headers, timeout=remaining_timeout(timeout))
             last_resp = resp
             if (resp.status_code == 400 and "response_format" in payload and not json_mode_dropped
                     and "response_format" in resp.text.lower()):
@@ -353,10 +352,12 @@ def request_openrouter(
                         if history:
                             usage = dict(usage, retries=list(history))
                         return text, usage, resp
+        except ModelBudgetExceeded:
+            raise  # A local limit is not a retryable provider outage.
         except requests.exceptions.Timeout as exc:
             timeouts += 1
             last_exc = exc
-            if timeouts > timeout_retries:
+            if timeouts > settings.OPENROUTER_TIMEOUT_RETRIES:
                 history.append(f"attempt {attempt}: timeout")
                 raise
             reason = "timeout"
@@ -369,7 +370,7 @@ def request_openrouter(
             break
         wait = _backoff(attempt, retry_after)
         logger.warning(f"{label()} {reason}; retry {attempt}/{max_retries} in {wait:.1f}s")
-        time.sleep(wait)
+        budget_sleep(wait)
 
     # Out of retries.
     bad_output = reason in ("empty response", "output was not valid JSON")

@@ -1,6 +1,7 @@
 """Business logic layer: process an uploaded invoice end-to-end and persist it."""
 import json
-from ai.vision_budget import vision_scope
+from ai.vision_budget import vision_scope, vision_file_scope
+from ai.processing_budget import processing_scope
 from pathlib import Path
 from config.constants import SUPPORTED_IMAGE_EXTS
 from config.settings import settings
@@ -8,10 +9,8 @@ from config.logging import get_logger
 from database.database import SessionLocal
 from database.repository import InvoiceRepository, DuplicateInvoiceError, InvoiceLockedError
 from database.models import InvoiceORM
-from parser.invoice_parser import parse_invoice_pages_detailed, InvoiceParsingError
-from utils.file_utils import move_to_processed, sanitize_filename_component, file_hash
-from ai.post_processing import has_transaction_evidence
-from ai.field_evidence import mark_user_changes, build_field_evidence
+from parser.invoice_parser import parse_invoice_pages, InvoiceParsingError
+from utils.file_utils import move_to_processed, sanitize_filename_component
 from utils.categorizer import auto_categorize
 from services.audit_service import log_action
 
@@ -114,70 +113,8 @@ def _generate_enhanced_image(file_path: str, enabled: bool | None = None) -> str
         return None
 
 
-def _pages_text(page_numbers: list[int]) -> str:
-    return f"page {page_numbers[0]}" if len(page_numbers) == 1 else f"pages {page_numbers[0]}-{page_numbers[-1]}"
-
-
-def _source_label(base_filename: str, invoice) -> str:
-    """Name shown in History/Upload. Uses the invoice's REAL page numbers within the uploaded file (not its
-    position among the pages that happened to succeed), and stays the plain filename when the invoice
-    covers the whole file."""
-    pages = list(getattr(invoice, "source_pages", None) or [])
-    total = getattr(invoice, "source_total_pages", None) or 0
-    if not pages or total <= 1 or pages == list(range(1, total + 1)):
-        return base_filename
-    return f"{base_filename} ({_pages_text(pages)}/{total})"
-
-
-def _source_fingerprint(source_hash: str | None, invoice, fallback_index: int) -> str | None:
-    if not source_hash:
-        return None
-    pages = list(getattr(invoice, "source_pages", None) or [])
-    if not pages:
-        return f"{source_hash}:page:{fallback_index}"
-    if len(pages) == 1:
-        return f"{source_hash}:page:{pages[0]}"
-    return f"{source_hash}:pages:{pages[0]}-{pages[-1]}"
-
-
-def _skipped_page_rows(base_filename: str, skipped: list[dict]) -> list[dict]:
-    """One visible failure row per page (or page range) that could not be processed."""
-    rows = []
-    for item in skipped:
-        pages = item.get("pages") or []
-        total = item.get("total_pages") or 0
-        where = f"{_pages_text(pages)}/{total}" if pages and total else "file"
-        rows.append({
-            "success": False,
-            "skipped_pages": pages,
-            "file": f"{base_filename} ({where})" if total > 1 else base_filename,
-            "error": f"{where.capitalize()} could not be processed and was not added to History: {item.get('reason')}",
-        })
-    return rows
-
-
-def _quality_warnings(invoice) -> list[str]:
-    warnings = []
-    pages = list(getattr(invoice, "source_pages", None) or [])
-    if len(pages) > 1:
-        warnings.append(
-            f"{_pages_text(pages).capitalize()} were combined into one invoice. The image cross-check only "
-            "looked at the first page, so verify line items and totals against the last page."
-        )
-    if not getattr(invoice, "invoice_number", None):
-        warnings.append("Invoice number is not specified on the document.")
-    if not getattr(invoice, "invoice_date", None):
-        warnings.append("Invoice/transaction date is not specified on the document.")
-    if getattr(invoice, "total_amount", None) is None:
-        warnings.append("No total amount is stated/extracted; verify the amount with the vendor before payment.")
-    if not getattr(invoice, "vendor_address", None):
-        warnings.append("Vendor address was not readable or verified; check the source image before approval.")
-    if (getattr(invoice, "vendor_name", None) or "").strip().upper() == "UNKNOWN VENDOR":
-        warnings.append("Vendor name is not specified or could not be verified.")
-    return warnings
-
-
-@vision_scope
+@processing_scope
+@vision_file_scope
 def process_invoice_file(
     file_path: str,
     force_handwritten: bool | None = None,
@@ -207,28 +144,22 @@ def process_invoice_file(
     enhance_image: None (default) follows settings.ENHANCE_IMAGE_ENABLED,
     or True/False to override per-call (see Upload.py's checkbox).
     """
-    base_filename = original_filename or Path(file_path).name
+    # API, scanner and direct-service uploads also get a one-time preflight.
+    # A missing optional local vision model must never stop text extraction.
+    from ai.vision_budget import preflight_local_vision_model
+    preflight_local_vision_model()
     try:
-        invoices, skipped_pages = parse_invoice_pages_detailed(file_path, force_handwritten=force_handwritten)
-    except InvoiceParsingError as e:
+        invoices = parse_invoice_pages(file_path, force_handwritten=force_handwritten)
+    except Exception as e:
         logger.error(f"Parsing failed for {file_path}: {e}")
-        return [{"success": False, "error": str(e), "file": base_filename}]
+        return [{"success": False, "error": str(e), "file": file_path}]
 
-    if not invoices:
-        logger.error(f"No invoice could be extracted from any page of {file_path}")
-        return _skipped_page_rows(base_filename, skipped_pages) or [
-            {"success": False, "error": "No invoice could be extracted from the file.", "file": base_filename}
-        ]
-
-    # One invoice per uploaded file is a deliberate safety constraint. A PDF
-    # containing separate invoices must be split by the user and resubmitted.
-    # Check BEFORE saving any record to avoid partial batch imports.
-    if len(invoices) > 1:
-        return [{"success": False, "file": base_filename, "error": (
-            "Multiple invoices were detected in one file. No invoices were saved. "
-            "Upload each invoice as a separate file. A multi-page invoice is permitted "
-            "only when its pages are recognized as belonging to that same invoice."
-        )}]
+    base_filename = original_filename or Path(file_path).name
+    multi_invoice = len(invoices) > 1
+    if multi_invoice:
+        return [{"success": False, "rejected_document": True,
+                 "error": "Multiple invoices detected in one file. No invoices were saved. Please upload one invoice per file; pages belonging to the same invoice are allowed.",
+                 "file": base_filename}]
 
     # Enhance BEFORE move_to_processed() relocates file_path further down —
     # camscan() needs to read the file from its current location. Only
@@ -238,38 +169,17 @@ def process_invoice_file(
     enhanced_image_path = _generate_enhanced_image(file_path, enabled=enhance_image)
 
     results = []
-    try:
-        source_hash = file_hash(file_path)
-    except Exception:
-        source_hash = None
     session = SessionLocal()
     try:
         repo = InvoiceRepository(session)
         for i, invoice in enumerate(invoices, start=1):
-            invoice.original_filename = _source_label(base_filename, invoice)
+            invoice.original_filename = (
+                f"{base_filename} (invoice {i}/{len(invoices)})" if multi_invoice else base_filename
+            )
             invoice.vendor_name = (invoice.vendor_name or "Unknown Vendor").strip().upper()
             invoice.customer_name = (invoice.customer_name or "").strip().upper() or None
             invoice.category = auto_categorize(invoice.vendor_name, invoice.line_items)
             invoice.enhanced_image_path = enhanced_image_path
-            invoice.source_fingerprint = _source_fingerprint(source_hash, invoice, i)
-            quality_warnings = _quality_warnings(invoice)
-
-            # An incomplete but real transaction is saved as needs_review.
-            # A blank/uncompleted form (QA INV-36) is not a transaction and
-            # must not enter History merely because it has printed boilerplate.
-            if not has_transaction_evidence(invoice):
-                results.append({
-                    "success": False, "rejected_document": True,
-                    "invoice_number": invoice.invoice_number,
-                    "file": invoice.original_filename,
-                    "error": (
-                        "The document does not contain enough completed transaction evidence "
-                        "(items, amount, or filled transaction details). It appears to be a blank "
-                        "or uncompleted form and was not added to History."
-                    ),
-                    "quality_warnings": quality_warnings,
-                })
-                continue
 
             try:
                 orm_invoice = repo.save(invoice)
@@ -286,32 +196,26 @@ def process_invoice_file(
                     "invoice_number": invoice.invoice_number,
                     "existing_invoice_id": e.existing_id,
                     "error": (
-                        f"Duplicate invoice detected — it matches invoice #{e.existing_id} "
-                        f"({e.reason}). Skipped; not added to History."
+                        f"Duplicate invoice number '{invoice.invoice_number}' — "
+                        f"already exists as invoice #{e.existing_id}. Skipped; "
+                        "not added to History."
                     ),
                     "file": invoice.original_filename,
                 })
                 continue
+
             except Exception as e:
-                # Any other save failure (DB constraint, etc.) must only lose THIS invoice — not every
-                # remaining page of the file.
-                logger.exception(f"Saving invoice {i}/{len(invoices)} of {file_path} failed")
                 session.rollback()
-                results.append({
-                    "success": False,
-                    "invoice_number": invoice.invoice_number,
-                    "file": invoice.original_filename,
-                    "error": f"Could not save this invoice: {type(e).__name__}: {e}",
-                })
+                logger.exception("Could not persist invoice %s", invoice.invoice_number)
+                results.append({"success": False, "error": str(e), "file": invoice.original_filename})
                 continue
 
             invoice.id = orm_invoice.id
             try:
                 _archive_json(invoice)
-                log_action("UPLOAD", "invoice", invoice.id, f"Uploaded and processed {invoice.original_filename}; invoice #{invoice.invoice_number}")
-            except Exception as e:
-                # The invoice IS saved; a failed JSON archive/audit entry must not make it vanish from the results.
-                logger.warning(f"Post-save archive/audit step failed for invoice {invoice.id}: {e}")
+            except OSError as e:
+                logger.warning("Invoice saved but JSON archive failed: %s", e)
+            log_action("UPLOAD", "invoice", invoice.id, f"Uploaded and processed {invoice.original_filename}; invoice #{invoice.invoice_number}")
             results.append({
                 "success": True,
                 "invoice_id": invoice.id,
@@ -332,10 +236,10 @@ def process_invoice_file(
                 "current_charges_total": invoice.current_charges_total,
                 "previous_balance": invoice.previous_balance,
                 "currency": invoice.currency,
-                "quality_warnings": quality_warnings,
-                "validation_issues": invoice.validation_issues,
                 "category": invoice.category,
                 "confidence_score": invoice.confidence_score,
+                "validation_issues": invoice.validation_issues,
+                "field_confidences": invoice.field_confidences,
                 "field_evidence": invoice.field_evidence,
                 "status": invoice.status,
                 "ocr_engine_used": invoice.ocr_engine_used,
@@ -343,9 +247,6 @@ def process_invoice_file(
             })
     finally:
         session.close()
-
-    # Pages that could not be turned into an invoice are reported, never dropped silently.
-    results.extend(_skipped_page_rows(base_filename, skipped_pages))
 
     # Move the source file out of uploads/ ONCE (it's one physical file on
     # disk regardless of how many invoices were extracted from it), then
@@ -432,19 +333,14 @@ def update_invoice(invoice_id: int, updates: dict, audit: bool = True) -> dict:
         before = _orm_to_dict(before_row)
         submitted_fields = list(updates.keys())
 
-        # Mark edited fields and individual edited item cells as user-corrected,
-        # rather than displaying a stale OCR-derived confidence next to them.
+        from ai.field_evidence import mark_user_changes, build_field_evidence
         stored = before.get("field_evidence") or {}
         if not stored and before.get("raw_text"):
-            # Legacy invoices never stored field evidence. Reconstruct from
-            # archived OCR, rather than losing indicators after first edit.
-            stored = build_field_evidence(before, before.get("raw_text"),
+            stored = build_field_evidence(before, before["raw_text"],
                                           validation_issues=before.get("validation_issues") or [],
                                           ocr_engine=before.get("ocr_engine_used"))
-            for meta in stored.values():
-                meta["historic_ocr_only"] = True
-        changes_for_evidence = mark_user_changes(before, updates, stored)
-        row = repo.update(invoice_id, {**updates, "field_evidence": changes_for_evidence})
+        review = mark_user_changes(before, updates, stored)
+        row = repo.update(invoice_id, {**updates, "field_evidence": review})
         if row is None:
             raise ValueError(f"Invoice {invoice_id} not found")
         result = _orm_to_dict(row)
@@ -619,7 +515,6 @@ def _orm_to_dict(row) -> dict:
         "plate_number": row.plate_number,
         "original_filename": row.original_filename,
         "source_file": row.source_file,
-        "source_fingerprint": row.source_fingerprint,
         "enhanced_image_path": row.enhanced_image_path,
         "category": row.category,
         "created_at": row.created_at.isoformat() if row.created_at else None,
@@ -639,11 +534,12 @@ def _orm_to_dict(row) -> dict:
         "status": row.status,
         "locked": row.locked,
         "confidence_score": row.confidence_score,
-        "field_evidence": json.loads(row.field_evidence) if row.field_evidence else {},
+        "validation_issues": json.loads(row.validation_issues or "[]"),
+        "field_confidences": json.loads(row.field_confidences or "[]"),
+        "field_evidence": json.loads(row.field_evidence or "{}"),
         "ocr_engine_used": row.ocr_engine_used,
         "raw_text": row.raw_text,
         "vision_notes": row.vision_notes,
-        "validation_issues": json.loads(row.validation_issues) if row.validation_issues else [],
         "line_items": [
             {"description": li.description, "quantity": li.quantity, "unit_price": li.unit_price, "amount": li.amount}
             for li in row.line_items

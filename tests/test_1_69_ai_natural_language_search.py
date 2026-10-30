@@ -156,8 +156,7 @@ def test_pages_use_reusable_qwen_ai_search_and_keep_manual_filters():
     assert 'apply_search_plan(filtered_logs, ai_plan, "log")' in log
     assert 'Filter by Month' in log
 
-    assert 'st.markdown("**🤖 AI Search**")' in component
-    assert 'provider_display' not in component
+    assert 'AI Search ({llm_client.active_search_model()})' in component
     assert 'Clear AI Search' in component
     assert 'AI interpreted:' in component
     assert '"format": "json"' in interpreter

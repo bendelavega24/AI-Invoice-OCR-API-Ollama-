@@ -1,0 +1,3323 @@
+{
+  "scope": "All 59 supplied saved records. Deterministic replay, not new OCR/model verification. Replayed fields are proposals for review; remaining warnings are retained. No database values were automatically replaced.",
+  "records": [
+    {
+      "saved_id": 1,
+      "filename": "ParkingTickets2.png",
+      "changes": {},
+      "review_warnings": [
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "010296559",
+        "invoice_date": "2025-11-19",
+        "vendor_name": "SM DEVELOPMENT CORPORATION",
+        "vendor_address": "JAZZ RESIDENCES CORNER METROPOLITAN AVENUE AND NICANOR GARCIA ST. BEL-AIR C NCR FOURTH DISTRICT PHILIPPINES 1209",
+        "customer_name": null,
+        "customer_address": null,
+        "subtotal": 214.29,
+        "tax_amount": 25.71,
+        "withholding_tax": null,
+        "zero_rated_sales": 0.0,
+        "vat_exempt_sales": 0.0,
+        "total_amount": 240.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "PARKING FEE",
+            "quantity": 1.0,
+            "unit_price": 240.0,
+            "amount": 240.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 2,
+      "filename": "Sample Invoice_Page_2.pdf",
+      "changes": {
+        "customer_name": {
+          "saved": "TSUKIDEN GLOBAL SOLUTIONS INC.",
+          "replayed": "Tsukiden Global Solutions Inc."
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "44072",
+        "invoice_date": "2026-05-15",
+        "vendor_name": "NORTH STAR INTERNATIONAL TRAVEL INC.",
+        "vendor_address": "19/F Trident Tower 312 Sen. Gil Puyat Avenue Bel-Air, 1209 City of Makati NCR, Fourth District Philippines",
+        "customer_name": "Tsukiden Global Solutions Inc.",
+        "customer_address": "Unit 2102, 21st Floor, One Corporate Centre, Dona Julia Vargas Avenue corner Meralco Ave. Ortigas",
+        "subtotal": 1229.4,
+        "tax_amount": 147.53,
+        "withholding_tax": 0.0,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 1376.93,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "SERVICE FEE (TICKET)",
+            "quantity": 1.0,
+            "unit_price": 1229.4,
+            "amount": 1229.4
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 3,
+      "filename": "Addl Invoice_Page_2.pdf",
+      "changes": {
+        "vendor_name": {
+          "saved": "GLOBE BUSINESS: INNOVE COMMUNICATIONS, INC.",
+          "replayed": "Globe Business: Innove Communications, Inc."
+        },
+        "customer_name": {
+          "saved": "TSUKIDEN GLOBAL SOLUTIONS INC",
+          "replayed": "Tsukiden Global Solutions Inc"
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "Incomplete numbered document: received 1 page(s), printed page count is 2.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "IN000971069973",
+        "invoice_date": "2026-08-05",
+        "vendor_name": "Globe Business: Innove Communications, Inc.",
+        "vendor_address": "32nd Street corner 7th Avenue, Bonifacio Global City, Taguig, Philippines 1634",
+        "customer_name": "Tsukiden Global Solutions Inc",
+        "customer_address": "2101 One Corporate Center Julia Vargas Cor Meralco Ave Ortigas Center Ortigas,Pasig Metro Manila,1605",
+        "subtotal": 2598.0,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 2198.0,
+        "current_charges_total": 2198.0,
+        "previous_balance": 0.0,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Monthly Plan",
+            "quantity": 1.0,
+            "unit_price": 2499.0,
+            "amount": 2499.0
+          },
+          {
+            "description": "Add-ons",
+            "quantity": 1.0,
+            "unit_price": 99.0,
+            "amount": 99.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 4,
+      "filename": "Addl Invoice_Page_3.pdf",
+      "changes": {
+        "vendor_name": {
+          "saved": "SGV: SYCIP, GORRES, VELAYO & CO.",
+          "replayed": "SGV: Sycip, Gorres, Velayo & CO."
+        },
+        "current_charges_total": {
+          "saved": 11260.0,
+          "replayed": null
+        }
+      },
+      "review_warnings": [
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "PH91MKP0135619",
+        "invoice_date": "2026-08-06",
+        "vendor_name": "SGV: Sycip, Gorres, Velayo & CO.",
+        "vendor_address": "6760 Ayala Avenue, San Lorenzo, NCR, Fourth District, 1226 City of Makati, Philippines",
+        "customer_name": "TSUKIDEN GLOBAL SOLUTIONS INC",
+        "customer_address": "U 2102 21/F One Corporate Ctr Condo, J Vargas cor Meralco Ave, Brgy San Antonio, Ortigas Center, Pasig City 1605",
+        "subtotal": 10500.0,
+        "tax_amount": 1260.0,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 11760.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Fee",
+            "quantity": 1.0,
+            "unit_price": 10000.0,
+            "amount": 10000.0
+          },
+          {
+            "description": "Expense",
+            "quantity": 1.0,
+            "unit_price": 500.0,
+            "amount": 500.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 5,
+      "filename": "Addl Invoice_Page_4.pdf",
+      "changes": {
+        "current_charges_total": {
+          "saved": 96279.67,
+          "replayed": null
+        }
+      },
+      "review_warnings": [
+        "line_items row 1 quantity is missing or not numeric",
+        "line_items row 1 unit_price is missing or not numeric",
+        "line_items sum to 96279.67, which does not match subtotal (85963.99) â€” subtotal may have been misread as one of the individual line amounts",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "3219",
+        "invoice_date": "2026-08-13",
+        "vendor_name": "TRI-Q: RESPONSIBLE SERVICES INC.",
+        "vendor_address": "# 79 P. Cruz Street, Brgy. Old Zaniga, 1550 City of Mandaluyong NCR, Second District Philippines",
+        "customer_name": "TSUKIDENGLOBAL SOLUTIONS, INC.",
+        "customer_address": "21st Floor One Corporate Center, Julia Vargas Corner Meralco Ave, Ortigas Center, Pasig City",
+        "subtotal": 85963.99,
+        "tax_amount": 10315.68,
+        "withholding_tax": 1719.28,
+        "zero_rated_sales": 0.0,
+        "vat_exempt_sales": 0.0,
+        "total_amount": 94560.39,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "UTILITY SERVICES",
+            "quantity": 1.0,
+            "unit_price": 96279.67,
+            "amount": 96279.67
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 6,
+      "filename": "Addl Invoice_Page_5.pdf",
+      "changes": {
+        "customer_name": {
+          "saved": "TSUKIDEN GLOBAL SOLUTIONS INC.",
+          "replayed": "Tsukiden Global Solutions Inc."
+        }
+      },
+      "review_warnings": [
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "52091",
+        "invoice_date": "2026-07-22",
+        "vendor_name": "NORTH STAR INTERNATIONAL TRAVEL INC.",
+        "vendor_address": "19/F Trident Tower 312 Sen. Gil Puyat Avenue Bel-Air, 1209 City of Makati NCR, Fourth District Philippines",
+        "customer_name": "Tsukiden Global Solutions Inc.",
+        "customer_address": "Unit 2102, 21st Floor, One Corporate Centre, Dona Julia Vargas Avenue corner Meralco Ave. Ortigas",
+        "subtotal": 2468.0,
+        "tax_amount": 296.16,
+        "withholding_tax": 0.0,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 2764.16,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "SERVICE FEE (TICKET)",
+            "quantity": 1.0,
+            "unit_price": 2468.0,
+            "amount": 2468.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 7,
+      "filename": "GlobeInvoice1.jpg",
+      "changes": {
+        "vendor_name": {
+          "saved": "GLOBE BUSINESS: INNOVE COMMUNICATIONS, INC.",
+          "replayed": "Globe Business: Innove Communications, Inc."
+        }
+      },
+      "review_warnings": [
+        "Incomplete numbered document: received 1 page(s), printed page count is 2.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "IN000743093867",
+        "invoice_date": "2025-01-15",
+        "vendor_name": "Globe Business: Innove Communications, Inc.",
+        "vendor_address": "32nd Street corner 7th Avenue, Bonifacio Global City, Taguig, Philippines 1634",
+        "customer_name": "NORTHERN MINDANAO COLLEGES",
+        "customer_address": "ATEGASTREET Poblacion 2,Cabadbaran",
+        "subtotal": 4257.0,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 5947.51,
+        "current_charges_total": 4198.0,
+        "previous_balance": 1749.51,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Monthly Plan",
+            "quantity": 1.0,
+            "unit_price": 3499.0,
+            "amount": 3499.0
+          },
+          {
+            "description": "Add-ons",
+            "quantity": 1.0,
+            "unit_price": 758.0,
+            "amount": 758.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 8,
+      "filename": "ParkingTickets1.png",
+      "changes": {},
+      "review_warnings": [
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "010296289",
+        "invoice_date": "2025-11-18",
+        "vendor_name": "SM DEVELOPMENT CORPORATION",
+        "vendor_address": "JAZZ RESIDENCES CORNER METROPOLITAN AVENUE AND NICANOR GARCIA ST. BEL-AIR C NCR FOURTH DISTRICT PHILIPPINES 1209",
+        "customer_name": null,
+        "customer_address": null,
+        "subtotal": 196.43,
+        "tax_amount": 23.57,
+        "withholding_tax": null,
+        "zero_rated_sales": 0.0,
+        "vat_exempt_sales": 0.0,
+        "total_amount": 220.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "PARKING FEE",
+            "quantity": 1.0,
+            "unit_price": 220.0,
+            "amount": 220.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 9,
+      "filename": "INV-04.pdf",
+      "changes": {
+        "vendor_name": {
+          "saved": "SMART COMMUNICATIONS INC",
+          "replayed": "PLDT INC."
+        }
+      },
+      "review_warnings": [
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "0434287913",
+        "invoice_date": "2020-03-07",
+        "vendor_name": "PLDT INC.",
+        "vendor_address": "PLDT MAKATI SALES AND SERVICE CENTER, Ramon Cojuangco Bldg, 100 Legaspi St, corner Dela Rosa Street, Makati City",
+        "customer_name": "ROMNICK IGNACIO JESALVA",
+        "customer_address": "UNIT 3415 FLORA VISTA 345 PEACOCK ST BGY COMMONWEALTH QUEZON CITY METRO MANILA 3QNNDC0157 QUEZON CITY",
+        "subtotal": 1159.82,
+        "tax_amount": 139.18,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 1289.0,
+        "current_charges_total": 1299.0,
+        "previous_balance": -10.0,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Fibr Unli Plan 1299",
+            "quantity": 1.0,
+            "unit_price": 1159.82,
+            "amount": 1159.82
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 10,
+      "filename": "INV-01.pdf",
+      "changes": {
+        "customer_name": {
+          "saved": "AVIDA LAND CORP.",
+          "replayed": ": AVIDA LAND CORP."
+        }
+      },
+      "review_warnings": [
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "4230011264445",
+        "invoice_date": "2020-01-10",
+        "vendor_name": "MERALCO",
+        "vendor_address": "ALABANG BUS. CENTER PRIME ST. MUNTINLUPA",
+        "customer_name": ": AVIDA LAND CORP.",
+        "customer_address": "AVIDA LAND CORP. 0001 LT(212) PRIME ST. ST MADRIGAL BUSINESS PARK BGY AYALA-ALABANG MUNTINLUPA METRO MANILA",
+        "subtotal": 884.27,
+        "tax_amount": 98.63,
+        "withholding_tax": null,
+        "zero_rated_sales": 0.0,
+        "vat_exempt_sales": 51.65,
+        "total_amount": 2543.07,
+        "current_charges_total": 1034.55,
+        "previous_balance": 1508.52,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Generation",
+            "quantity": 1.0,
+            "unit_price": 529.62,
+            "amount": 529.62
+          },
+          {
+            "description": "Transmission",
+            "quantity": 1.0,
+            "unit_price": 71.88,
+            "amount": 71.88
+          },
+          {
+            "description": "System Loss",
+            "quantity": 1.0,
+            "unit_price": 44.79,
+            "amount": 44.79
+          },
+          {
+            "description": "Distribution (Meralco)",
+            "quantity": 1.0,
+            "unit_price": 221.25,
+            "amount": 221.25
+          },
+          {
+            "description": "Subsidies",
+            "quantity": 1.0,
+            "unit_price": 10.15,
+            "amount": 10.15
+          },
+          {
+            "description": "Government Taxes",
+            "quantity": 1.0,
+            "unit_price": 105.21,
+            "amount": 105.21
+          },
+          {
+            "description": "Universal Charges",
+            "quantity": 1.0,
+            "unit_price": 27.61,
+            "amount": 27.61
+          },
+          {
+            "description": "FiT-All (Renewable)",
+            "quantity": 1.0,
+            "unit_price": 24.04,
+            "amount": 24.04
+          },
+          {
+            "description": "Other Charges",
+            "quantity": 1.0,
+            "unit_price": 0.0,
+            "amount": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 11,
+      "filename": "INV-37.jpg",
+      "changes": {
+        "invoice_number": {
+          "saved": "880451361",
+          "replayed": "1000044843719"
+        },
+        "vendor_name": {
+          "saved": "GLOBE",
+          "replayed": "GLOBE BUSINESS: INNOVE COMMUNICATIONS, INC."
+        },
+        "customer_name": {
+          "saved": "MS.ABIGAIL ARIBAS VILLA",
+          "replayed": "Ms.Abigail Aribas Villa"
+        },
+        "subtotal": {
+          "saved": 2034.76,
+          "replayed": 2133.76
+        }
+      },
+      "review_warnings": [
+        "current_charges_total (2290.81) + previous_balance (1499.0) = 3789.81, which does not match total_amount/Amount to Pay (791.81)",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "1000044843719",
+        "invoice_date": "2019-04-05",
+        "vendor_name": "GLOBE BUSINESS: INNOVE COMMUNICATIONS, INC.",
+        "vendor_address": "32nd Street corner 7th Avenue, Bonifacio Global City, Taguig, Philippines 1634",
+        "customer_name": "Ms.Abigail Aribas Villa",
+        "customer_address": "Brgy.San Pablo, Malolos Bulacan, 3000 Philippines, Amount, Previous Bill Charges",
+        "subtotal": 2133.76,
+        "tax_amount": 256.05,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 791.81,
+        "current_charges_total": 2290.81,
+        "previous_balance": 1499.0,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Monthly Recurring Fee",
+            "quantity": 1.0,
+            "unit_price": 2133.76,
+            "amount": 2133.76
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 12,
+      "filename": "INV-38.png",
+      "changes": {},
+      "review_warnings": [
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "1234567890",
+        "invoice_date": "2026-05-13",
+        "vendor_name": "ACE HARDWARE PHILIPPINES INC",
+        "vendor_address": "Manila A.Roxas Hwy, Clark Freeport, Angeles, Pampanga",
+        "customer_name": "JUAN DELA CRUZ",
+        "customer_address": "123MAPLE ST, SAN PEDRO.LAGUNA, PHILPIPINES",
+        "subtotal": 4888.0,
+        "tax_amount": 586.56,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 5474.56,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Power Drill",
+            "quantity": 1.0,
+            "unit_price": 3495.0,
+            "amount": 3495.0
+          },
+          {
+            "description": "Screwdriver Set",
+            "quantity": 1.0,
+            "unit_price": 695.0,
+            "amount": 695.0
+          },
+          {
+            "description": "MeasuringTape",
+            "quantity": 2.0,
+            "unit_price": 349.0,
+            "amount": 698.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 13,
+      "filename": "INV-38-2.png",
+      "changes": {
+        "vendor_name": {
+          "saved": "SHOPEE PHILIPPINES INC.",
+          "replayed": "SHOPEE PHILIPPINES InC."
+        },
+        "vendor_address": {
+          "saved": "37/F Net Park Bldg, 5th Ave.Bonifacio Global City, Fort Bonifacio, Taguig City, Philippines",
+          "replayed": "Taguig City, Philippines"
+        }
+      },
+      "review_warnings": [
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "1234567890",
+        "invoice_date": "2026-05-13",
+        "vendor_name": "SHOPEE PHILIPPINES InC.",
+        "vendor_address": "Taguig City, Philippines",
+        "customer_name": "JUAN DELA CRUZ",
+        "customer_address": "123 MAPLE ST, SAN PEDRO, LAGUNA, PHILIPPINES",
+        "subtotal": 4888.0,
+        "tax_amount": 586.56,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 5474.56,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Power Drill",
+            "quantity": 1.0,
+            "unit_price": 3495.0,
+            "amount": 3495.0
+          },
+          {
+            "description": "Screwdriver Set",
+            "quantity": 1.0,
+            "unit_price": 695.0,
+            "amount": 695.0
+          },
+          {
+            "description": "Measuring Tape",
+            "quantity": 2.0,
+            "unit_price": 349.0,
+            "amount": 698.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 14,
+      "filename": "INV-39.png",
+      "changes": {
+        "vendor_name": {
+          "saved": "SHOPEEPAY PHILIPPINES, INC",
+          "replayed": "ShopeePay Philippines, Inc"
+        },
+        "subtotal": {
+          "saved": 15.0,
+          "replayed": 13.39
+        },
+        "tax_amount": {
+          "saved": null,
+          "replayed": 1.61
+        },
+        "current_charges_total": {
+          "saved": 13.39,
+          "replayed": null
+        }
+      },
+      "review_warnings": [
+        "line_items sum to 15.00, which does not match subtotal (13.39) â€” subtotal may have been misread as one of the individual line amounts",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "ISINVWA000039616110",
+        "invoice_date": "2026-01-31",
+        "vendor_name": "ShopeePay Philippines, Inc",
+        "vendor_address": "46F The Podium West Tower Ortigas Center Wack-Wack Greenhills, 1555 City of Mandaluyong NCR, Second District Philippines",
+        "customer_name": "DHAVID JAMES CONSIGO OBTINA JR",
+        "customer_address": "DHAVID JAMES CONSIGO OBTINA JR, Palico St, Dacanlao, Calaca, South Luzon, Batangas4212, Amount, 13.39",
+        "subtotal": 13.39,
+        "tax_amount": 1.61,
+        "withholding_tax": null,
+        "zero_rated_sales": 0.0,
+        "vat_exempt_sales": 0.0,
+        "total_amount": 15.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Admin Fee for Jan 2026",
+            "quantity": 1.0,
+            "unit_price": 13.39,
+            "amount": 13.39
+          },
+          {
+            "description": "Discount",
+            "quantity": 1.0,
+            "unit_price": 1.61,
+            "amount": 1.61
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 15,
+      "filename": "INV-39-2.png",
+      "changes": {
+        "vendor_name": {
+          "saved": "SHOPEEPAYPHILIPPINES,INC",
+          "replayed": "ShopeePayPhilippines,Inc"
+        },
+        "tax_amount": {
+          "saved": null,
+          "replayed": 3.21
+        },
+        "total_amount": {
+          "saved": 26.79,
+          "replayed": 30.0
+        },
+        "current_charges_total": {
+          "saved": 26.79,
+          "replayed": null
+        }
+      },
+      "review_warnings": [
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "ISORWA000001492046",
+        "invoice_date": "2024-02-29",
+        "vendor_name": "ShopeePayPhilippines,Inc",
+        "vendor_address": "37/F Net Park Bldg.5th Ave.Bonifacio Global City, Fort Bonifacio 1634 Taguig City NCR, Fourth District Philippines",
+        "customer_name": "ELMAR IBARRA MUJAR",
+        "customer_address": "ELMAR IBARRA MUJAR, Blk 2 center plain home, poblacion san, pascual batangas, Poblacion, San Pascual, South Luzon, Batangas 4204, Receipt Amount in PHP, Functional Amount in PHP, 30.00",
+        "subtotal": 26.79,
+        "tax_amount": 3.21,
+        "withholding_tax": 0.0,
+        "zero_rated_sales": 0.0,
+        "vat_exempt_sales": 0.0,
+        "total_amount": 30.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Admin Fee for Feb 2024",
+            "quantity": 1.0,
+            "unit_price": 30.0,
+            "amount": 30.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 16,
+      "filename": "INV-40.png",
+      "changes": {
+        "vendor_name": {
+          "saved": "NOTARIZE, INC. DBA PROOF",
+          "replayed": "Notarize, Inc. dba Proof"
+        },
+        "customer_name": {
+          "saved": "ABC COMPANY",
+          "replayed": "ABC Company"
+        }
+      },
+      "review_warnings": [
+        "due_date - invoice_date = 28 days, but payment_terms says Net 30 â€” one of the two dates was likely misread",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "NOTARIZE185857",
+        "invoice_date": "2026-02-22",
+        "vendor_name": "Notarize, Inc. dba Proof",
+        "vendor_address": "867 Boylston Street 5th Floor, #1656 Boston, MA 02116",
+        "customer_name": "ABC Company",
+        "customer_address": "1234 Company Drive Boston, MA 02050",
+        "subtotal": 400.0,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 400.0,
+        "current_charges_total": 400.0,
+        "previous_balance": null,
+        "currency": "USD",
+        "line_items": [
+          {
+            "description": "Minimum commitment",
+            "quantity": 1.0,
+            "unit_price": 40.0,
+            "amount": 40.0
+          },
+          {
+            "description": "Platform fee",
+            "quantity": 1.0,
+            "unit_price": 300.0,
+            "amount": 300.0
+          },
+          {
+            "description": "IHN first seal",
+            "quantity": 6.0,
+            "unit_price": 10.0,
+            "amount": 60.0
+          },
+          {
+            "description": "IHN additional seal",
+            "quantity": 2.0,
+            "unit_price": 0.0,
+            "amount": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 17,
+      "filename": "INV-41.png",
+      "changes": {},
+      "review_warnings": [
+        "total_amount (3455.20) does not appear verbatim anywhere in the OCR text — it may have been invented/derived rather than read directly off the document (even if it's internally consistent with subtotal/tax); check the source image manually.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "2026-0S13-001",
+        "invoice_date": "2026-05-13",
+        "vendor_name": "ROBINSONS DEPARTMENT STORE",
+        "vendor_address": "Galleria Corporate Center, EDSA cor. Ortigas Ave, Quezon City, Metro Manila",
+        "customer_name": "MARIA SANTOS",
+        "customer_address": "456 SUNRISEAVE, MAKATCITY, METRO MANILA",
+        "subtotal": 3085.0,
+        "tax_amount": 370.2,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 3455.2,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Foldable Chair",
+            "quantity": 2.0,
+            "unit_price": 895.0,
+            "amount": 1790.0
+          },
+          {
+            "description": "Table Lamp",
+            "quantity": 1.0,
+            "unit_price": 1295.0,
+            "amount": 1295.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 18,
+      "filename": "INV-42.png",
+      "changes": {
+        "vendor_name": {
+          "saved": "PUREGOLD PRICE CLUB INC.",
+          "replayed": "Puregold Price Club Inc."
+        },
+        "vendor_address": {
+          "saved": "E.Rodriguez Jr.Ave, Bagumbayan, Quezon City, MetroManila",
+          "replayed": null
+        },
+        "tax_amount": {
+          "saved": null,
+          "replayed": 158.76
+        },
+        "currency": {
+          "saved": "USD",
+          "replayed": "PHP"
+        }
+      },
+      "review_warnings": [
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "PG-2026-004567",
+        "invoice_date": "2026-05-14",
+        "vendor_name": "Puregold Price Club Inc.",
+        "vendor_address": null,
+        "customer_name": "JANE REYES",
+        "customer_address": "PASIG CITY, METRO MANILA",
+        "subtotal": 1323.0,
+        "tax_amount": 158.76,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 1481.76,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Rice Skg",
+            "quantity": 2.0,
+            "unit_price": 265.0,
+            "amount": 530.0
+          },
+          {
+            "description": "Cooking Oil 1L",
+            "quantity": 3.0,
+            "unit_price": 125.0,
+            "amount": 375.0
+          },
+          {
+            "description": "Instant Noodles (Pack)",
+            "quantity": 5.0,
+            "unit_price": 48.0,
+            "amount": 240.0
+          },
+          {
+            "description": "Toothpaste",
+            "quantity": 2.0,
+            "unit_price": 89.0,
+            "amount": 178.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 19,
+      "filename": "INV-43.png",
+      "changes": {
+        "vendor_name": {
+          "saved": "SM SUPERMALLS",
+          "replayed": "SM Supermalls"
+        },
+        "customer_name": {
+          "saved": "MARK DELA CRUZ",
+          "replayed": "Mark Dela Cruz"
+        },
+        "tax_amount": {
+          "saved": null,
+          "replayed": 419.76
+        },
+        "current_charges_total": {
+          "saved": 3488.0,
+          "replayed": null
+        }
+      },
+      "review_warnings": [
+        "total_amount (3917.76) does not appear verbatim anywhere in the OCR text — it may have been invented/derived rather than read directly off the document (even if it's internally consistent with subtotal/tax); check the source image manually.",
+        "subtotal (3488.0) + tax (419.76) + zero-rated (0) + vat-exempt (0) - discount (0) - withholding tax (0) = 3907.76, which does not match total_amount (3917.76)",
+        "Low OCR confidence: verify identifiers, dates and amounts against the original document.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "eNSM-778699",
+        "invoice_date": "2026-05-12",
+        "vendor_name": "SM Supermalls",
+        "vendor_address": "Mall f As Comp Passy Cty",
+        "customer_name": "Mark Dela Cruz",
+        "customer_address": "Address Unknown",
+        "subtotal": 3488.0,
+        "tax_amount": 419.76,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 3917.76,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Backpack",
+            "quantity": 1.0,
+            "unit_price": 3488.0,
+            "amount": 3488.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 20,
+      "filename": "INV-02.png",
+      "changes": {
+        "vendor_name": {
+          "saved": "MR.IRAWADI JOHN OUD",
+          "replayed": "MS.SASA C.ARANETA"
+        },
+        "vendor_address": {
+          "saved": "1575 PRINCETON ST, IA KARAMU STREET, METRO MANILA",
+          "replayed": "1575 PRINCETON ST. WACK-WACK VILLAGE MANDALUYONG METRO MANILA PHILIPPINES1555"
+        },
+        "customer_name": {
+          "saved": "MS.SASA C.ARANETA",
+          "replayed": "MR.IRAWADI JOHN OUD"
+        },
+        "customer_address": {
+          "saved": "AUCKLAND 0610, METRO MANILA, NEW ZEALAND, PHILIPPINES1555",
+          "replayed": "IA KARAMU STREET TE ATATU PENINSULA AUCKLAND 0610 NEW ZEALAND"
+        }
+      },
+      "review_warnings": [
+        "total_amount is missing and not verbatim in the OCR text",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "O0001",
+        "invoice_date": "2018-05-09",
+        "vendor_name": "MS.SASA C.ARANETA",
+        "vendor_address": "1575 PRINCETON ST. WACK-WACK VILLAGE MANDALUYONG METRO MANILA PHILIPPINES1555",
+        "customer_name": "MR.IRAWADI JOHN OUD",
+        "customer_address": "IA KARAMU STREET TE ATATU PENINSULA AUCKLAND 0610 NEW ZEALAND",
+        "subtotal": 110.0,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 110.0,
+        "current_charges_total": 110.0,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "HOUSE KEY",
+            "quantity": 1.0,
+            "unit_price": 110.0,
+            "amount": 110.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 21,
+      "filename": "INV-03.jpg",
+      "changes": {},
+      "review_warnings": [
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "125202122810038775",
+        "invoice_date": "2021-05-13",
+        "vendor_name": "ACE HARDWARE PHILIPPINESINC.",
+        "vendor_address": "Manue1 A.Roxas Hwy Clark Freeport, Angeles Pampanga",
+        "customer_name": null,
+        "customer_address": null,
+        "subtotal": 40775.0,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 40775.0,
+        "current_charges_total": 40775.0,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "HALLUX ITALY AVR 10000W",
+            "quantity": 1.0,
+            "unit_price": 40775.0,
+            "amount": 40775.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 22,
+      "filename": "INV-05.jpg",
+      "changes": {
+        "vendor_address": {
+          "saved": "0004LT BLOCK25 ST",
+          "replayed": "0004 LT BLOCK25 ST"
+        },
+        "customer_address": {
+          "saved": "23 Aug 2022 to 22 Sep 2022",
+          "replayed": "0004 LT BLOCK25 ST ACM WOODST OCK PHI SUBD IMUS IMUS4103 CAVITE"
+        },
+        "subtotal": {
+          "saved": 5.0,
+          "replayed": null
+        },
+        "tax_amount": {
+          "saved": 0.64,
+          "replayed": null
+        }
+      },
+      "review_warnings": [
+        "line_items row 1 quantity is missing or not numeric",
+        "line_items row 1 unit_price is missing or not numeric",
+        "line_items row 2 quantity is missing or not numeric",
+        "line_items row 2 unit_price is missing or not numeric",
+        "line_items row 3 quantity is missing or not numeric",
+        "line_items row 3 unit_price is missing or not numeric",
+        "line_items row 4 quantity is missing or not numeric",
+        "line_items row 4 unit_price is missing or not numeric",
+        "line_items row 5 quantity is missing or not numeric",
+        "line_items row 5 unit_price is missing or not numeric",
+        "line_items row 6 quantity is missing or not numeric",
+        "line_items row 6 unit_price is missing or not numeric",
+        "line_items row 7 quantity is missing or not numeric",
+        "line_items row 7 unit_price is missing or not numeric",
+        "line_items row 8 quantity is missing or not numeric",
+        "line_items row 8 unit_price is missing or not numeric",
+        "VAT breakdown not present on supplied electricity-bill page; VATable sales and VAT require review.",
+        "subtotal/net amount is missing (null) — could not verify against total_amount (5.64); check the source document manually.",
+        "line_items row 1: quantity * unit_price does not match amount",
+        "line_items row 2: quantity * unit_price does not match amount",
+        "line_items row 3: quantity * unit_price does not match amount",
+        "line_items row 4: quantity * unit_price does not match amount",
+        "line_items row 5: quantity * unit_price does not match amount",
+        "line_items row 6: quantity * unit_price does not match amount",
+        "line_items row 7: quantity * unit_price does not match amount",
+        "line_items row 8: quantity * unit_price does not match amount",
+        "Incomplete numbered document: received 1 page(s), printed page count is 2.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "4132095502586",
+        "invoice_date": "2022-09-24",
+        "vendor_name": "MERALCO",
+        "vendor_address": "0004 LT BLOCK25 ST",
+        "customer_name": "RENATO DIOCALES",
+        "customer_address": "0004 LT BLOCK25 ST ACM WOODST OCK PHI SUBD IMUS IMUS4103 CAVITE",
+        "subtotal": null,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 5.64,
+        "current_charges_total": 5.64,
+        "previous_balance": 0.0,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Generation",
+            "quantity": 0.0,
+            "unit_price": 5.64,
+            "amount": 5.64
+          },
+          {
+            "description": "Transmission",
+            "quantity": 0.0,
+            "unit_price": 5.64,
+            "amount": 5.64
+          },
+          {
+            "description": "System Loss",
+            "quantity": 0.0,
+            "unit_price": 5.64,
+            "amount": 5.64
+          },
+          {
+            "description": "Distribution (Meralco)",
+            "quantity": 0.0,
+            "unit_price": 5.64,
+            "amount": 5.64
+          },
+          {
+            "description": "Subsidies",
+            "quantity": 0.0,
+            "unit_price": 0.64,
+            "amount": 0.64
+          },
+          {
+            "description": "Government Taxes",
+            "quantity": 0.0,
+            "unit_price": 0.64,
+            "amount": 0.64
+          },
+          {
+            "description": "Universal Charges",
+            "quantity": 0.0,
+            "unit_price": 0.64,
+            "amount": 0.64
+          },
+          {
+            "description": "FiT-All (Renewable)",
+            "quantity": 0.0,
+            "unit_price": 0.64,
+            "amount": 0.64
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 23,
+      "filename": "INV-06.jpg",
+      "changes": {
+        "subtotal": {
+          "saved": 2866.9,
+          "replayed": null
+        }
+      },
+      "review_warnings": [
+        "VAT breakdown not present on supplied electricity-bill page; VATable sales and VAT require review.",
+        "subtotal/net amount is missing (null) — could not verify against total_amount (2866.9); check the source document manually.",
+        "Low OCR confidence: verify identifiers, dates and amounts against the original document.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "1234567893",
+        "invoice_date": "2026-05-20",
+        "vendor_name": "MERALCO",
+        "vendor_address": null,
+        "customer_name": null,
+        "customer_address": null,
+        "subtotal": null,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 2866.9,
+        "current_charges_total": 2866.9,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Your monthly consumption",
+            "quantity": 1.0,
+            "unit_price": 80.0,
+            "amount": 80.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 24,
+      "filename": "INV-07.jpg",
+      "changes": {
+        "vendor_address": {
+          "saved": "Ramon Cojuangco Bidg.Makati Ave.Makati City1200",
+          "replayed": null
+        },
+        "subtotal": {
+          "saved": 44800.0,
+          "replayed": 8000.0
+        }
+      },
+      "review_warnings": [
+        "Incomplete numbered document: received 1 page(s), printed page count is 3.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "0424128343",
+        "invoice_date": "2019-10-17",
+        "vendor_name": "PLDT INC.",
+        "vendor_address": null,
+        "customer_name": "LOCAL GOVERNMENT OF RAMON,ISABELA",
+        "customer_address": "LGU MAHARLIKA HWY BGY BUGALLON, RAMON RAMON",
+        "subtotal": 8000.0,
+        "tax_amount": 960.0,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 53760.0,
+        "current_charges_total": 8960.0,
+        "previous_balance": 44800.0,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Monthly Service Fee and Other Basic Charges",
+            "quantity": 1.0,
+            "unit_price": 8000.0,
+            "amount": 8000.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 25,
+      "filename": "INV-08.jpg",
+      "changes": {
+        "invoice_number": {
+          "saved": "001/004872",
+          "replayed": "0298050594"
+        },
+        "vendor_name": {
+          "saved": "PHILIPPINE LONG DISTANCE TELEPHONE COMPANY",
+          "replayed": "PLDT INC."
+        },
+        "subtotal": {
+          "saved": 1433.26,
+          "replayed": 1279.83
+        },
+        "tax_amount": {
+          "saved": 1279.83,
+          "replayed": 153.58
+        },
+        "total_amount": {
+          "saved": 1433.41,
+          "replayed": 1433.26
+        },
+        "previous_balance": {
+          "saved": -1302.5,
+          "replayed": -0.15
+        }
+      },
+      "review_warnings": [
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "0298050594",
+        "invoice_date": "2016-01-04",
+        "vendor_name": "PLDT INC.",
+        "vendor_address": "CALOOCAN CITY",
+        "customer_name": "NELSEN JOSE MARCELINO",
+        "customer_address": "0242309456, Previous Charges0.15 CR, NELSEN JOSE MARCELINO, Current Charges1, 433.41, 002-BL-004 REPAR HOMES ST CAMARIN, DISTRICT REPAR HOMES1 CALOOCAN CITY, Total Amount Due1.433.26, R PERMNUMBER 0815-126-00200-CAS, DATEISSuED September 12015",
+        "subtotal": 1279.83,
+        "tax_amount": 153.58,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 1433.26,
+        "current_charges_total": 1433.41,
+        "previous_balance": -0.15,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Monthly Service Fee and Other Basic Charges",
+            "quantity": 1.0,
+            "unit_price": 1279.83,
+            "amount": 1279.83
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 26,
+      "filename": "INV-09.jpg",
+      "changes": {
+        "invoice_number": {
+          "saved": "00025958910",
+          "replayed": "1000019396156"
+        },
+        "vendor_name": {
+          "saved": "GLOBE",
+          "replayed": "Globe"
+        },
+        "customer_name": {
+          "saved": "MANUPAC CARENDERIA",
+          "replayed": "Manupac Carenderia"
+        },
+        "subtotal": {
+          "saved": 149.79,
+          "replayed": 1248.21
+        },
+        "tax_amount": {
+          "saved": -66.0,
+          "replayed": 149.79
+        },
+        "total_amount": {
+          "saved": 2596.89,
+          "replayed": 2595.89
+        },
+        "current_charges_total": {
+          "saved": 1248.21,
+          "replayed": 1299.0
+        },
+        "previous_balance": {
+          "saved": -1296.89,
+          "replayed": 1296.89
+        }
+      },
+      "review_warnings": [
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "1000019396156",
+        "invoice_date": "2017-07-13",
+        "vendor_name": "Globe",
+        "vendor_address": null,
+        "customer_name": "Manupac Carenderia",
+        "customer_address": "Upper Campo slam, Labangan Zamboanga Del Sur, 7017 Philippines",
+        "subtotal": 1248.21,
+        "tax_amount": 149.79,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 2595.89,
+        "current_charges_total": 1299.0,
+        "previous_balance": 1296.89,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Monthly Recurring Fee",
+            "quantity": 1.0,
+            "unit_price": 1248.21,
+            "amount": 1248.21
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 27,
+      "filename": "INV-10.jpeg",
+      "changes": {
+        "vendor_name": {
+          "saved": "UNKNOWN VENDOR",
+          "replayed": "Unknown Vendor"
+        }
+      },
+      "review_warnings": [
+        "Missing vendor_name",
+        "Missing subtotal/net amount",
+        "line_items row 1 quantity is missing or not numeric",
+        "line_items row 1 unit_price is missing or not numeric",
+        "line_items row 1 amount is missing or not numeric",
+        "Missing required field: 'vendor_name'",
+        "Low OCR confidence: verify identifiers, dates and amounts against the original document.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "0527213137",
+        "invoice_date": "2022-12-31",
+        "vendor_name": "Unknown Vendor",
+        "vendor_address": null,
+        "customer_name": null,
+        "customer_address": null,
+        "subtotal": 5380.05,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 5380.05,
+        "current_charges_total": 5380.05,
+        "previous_balance": null,
+        "currency": "USD",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 28,
+      "filename": "INV-12.png",
+      "changes": {
+        "vendor_name": {
+          "saved": "SHOPEE PHILIPPINES INC",
+          "replayed": "Shopee Philippines Inc"
+        },
+        "customer_name": {
+          "saved": "JASSYS BOUTIQUE",
+          "replayed": "Jassys Boutique"
+        }
+      },
+      "review_warnings": [
+        "line_items row 1 quantity is missing or not numeric",
+        "line_items row 1 unit_price is missing or not numeric",
+        "line_items row 1: quantity * unit_price does not match amount",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "ISORPF000000318183",
+        "invoice_date": "2023-02-28",
+        "vendor_name": "Shopee Philippines Inc",
+        "vendor_address": "37/F Net Park Bldg, 5th Ave.Bonifacio Global City, Fort Bonifacio Taguig City, Philippines",
+        "customer_name": "Jassys Boutique",
+        "customer_address": "7h Basilio street Arnai corner Regilado Avenue Barangay Fairview QuezonCity, Metro Manila, 1118",
+        "subtotal": 60.71,
+        "tax_amount": 7.29,
+        "withholding_tax": null,
+        "zero_rated_sales": 0.0,
+        "vat_exempt_sales": 0.0,
+        "total_amount": 68.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Total Platform Fee",
+            "quantity": 0.0,
+            "unit_price": 68.0,
+            "amount": 68.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 29,
+      "filename": "INV-14.jpg",
+      "changes": {
+        "vendor_name": {
+          "saved": "APLDT PLDT INC",
+          "replayed": "PLDT INC."
+        },
+        "subtotal": {
+          "saved": 3095.0,
+          "replayed": 2763.39
+        },
+        "previous_balance": {
+          "saved": -3094.3,
+          "replayed": -5.7
+        },
+        "currency": {
+          "saved": "USD",
+          "replayed": "PHP"
+        }
+      },
+      "review_warnings": [
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "0000000001516J27F1BR",
+        "invoice_date": "2018-09-12",
+        "vendor_name": "PLDT INC.",
+        "vendor_address": "#49",
+        "customer_name": "MIRINISSA TILENDO TAYUAN",
+        "customer_address": "#49, DIAMOND STREET, DONA FRANCISCA HOMES, MATINA CROSSING, DAVAO CITY8000, BILL SUMMARY, Previous Charges, Balance from Previous il, Less:Payments Received-Thank You, Remaining Balance from Previous Bill, Current Charges, Monthty Service Fee and Other Basic Charges, Value Added Tax, Total Current Charges, Please pay or before Sept 12, 2018, Thank you for keeping yox account current. Wevalue your costinued, patronage.",
+        "subtotal": 2763.39,
+        "tax_amount": 331.61,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 3089.3,
+        "current_charges_total": 3095.0,
+        "previous_balance": -5.7,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Monthly Service Fee and Other Basic Charges",
+            "quantity": 1.0,
+            "unit_price": 2763.39,
+            "amount": 2763.39
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 30,
+      "filename": "INV-15.jpg",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-6480fe8b",
+          "replayed": "0434287913"
+        },
+        "vendor_address": {
+          "saved": "Ramon Cojuangco Bldg.Makati Ave.Makati City 1200",
+          "replayed": "Bldg.Maka"
+        },
+        "subtotal": {
+          "saved": 0.0,
+          "replayed": 1159.82
+        },
+        "tax_amount": {
+          "saved": null,
+          "replayed": 139.18
+        },
+        "current_charges_total": {
+          "saved": null,
+          "replayed": 1299.0
+        },
+        "previous_balance": {
+          "saved": null,
+          "replayed": -10.0
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "Missing required field: 'invoice_date'",
+        "Incomplete numbered document: received 1 page(s), printed page count is 3.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "0434287913",
+        "invoice_date": null,
+        "vendor_name": "PLDT INC.",
+        "vendor_address": "Bldg.Maka",
+        "customer_name": null,
+        "customer_address": null,
+        "subtotal": 1159.82,
+        "tax_amount": 139.18,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 1289.0,
+        "current_charges_total": 1299.0,
+        "previous_balance": -10.0,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Monthly Service Fee and Other Basic Charges",
+            "quantity": 1.0,
+            "unit_price": 1159.82,
+            "amount": 1159.82
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 31,
+      "filename": "INV-16.png",
+      "changes": {
+        "subtotal": {
+          "saved": 862.5,
+          "replayed": 376.32
+        },
+        "currency": {
+          "saved": "USD",
+          "replayed": "PHP"
+        }
+      },
+      "review_warnings": [
+        "subtotal (376.32) + tax (45.16) + zero-rated (0) + vat-exempt (0) - discount (16.02) - withholding tax (0) = 405.46, which does not match current_charges_total (421.48)",
+        "line_items sum to 1705.46, which does not match subtotal (376.32) â€” subtotal may have been misread as one of the individual line amounts",
+        "Low OCR confidence: verify identifiers, dates and amounts against the original document.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "Apr060127212870002",
+        "invoice_date": "2006-04-30",
+        "vendor_name": "DIGITELMOBILE PHILIPPINES, INC.",
+        "vendor_address": "29FGalleria Corporte CentrEDSA comerOrtgas AvenueQuzonCity 1110",
+        "customer_name": "JUAN R.DELA CRUZ",
+        "customer_address": "#12MAYBUNGA STREET DAMONG MALAKI AVENUE CUBAO QUEZON CITY 1109",
+        "subtotal": 376.32,
+        "tax_amount": 45.16,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 1283.98,
+        "current_charges_total": 421.48,
+        "previous_balance": 862.5,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Monhy Sarvioe Fee",
+            "quantity": 1.0,
+            "unit_price": 862.5,
+            "amount": 862.5
+          },
+          {
+            "description": "Usage Chargoe",
+            "quantity": 1.0,
+            "unit_price": 421.48,
+            "amount": 421.48
+          },
+          {
+            "description": "Less: Lscounts and Crads",
+            "quantity": 1.0,
+            "unit_price": 421.48,
+            "amount": 421.48
+          },
+          {
+            "description": "Remaining Balance",
+            "quantity": 1.0,
+            "unit_price": 862.5,
+            "amount": 862.5
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 32,
+      "filename": "INV-17.jpg",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-c0e98165",
+          "replayed": "3353055189919"
+        },
+        "vendor_name": {
+          "saved": "ELPIDIO NAPOLES ALMA JR",
+          "replayed": "MERALCO"
+        },
+        "customer_name": {
+          "saved": "ACCOUNT NUMBER (CAN)",
+          "replayed": "ELPIDIO NAPOLES ALMA JR"
+        },
+        "customer_address": {
+          "saved": "23 Apr 2023 to 22 May 2023",
+          "replayed": "0011 (UP) KAURAYA ST TATALON Q.C-NEW MANILA METRO MANILA"
+        },
+        "subtotal": {
+          "saved": 9349.73,
+          "replayed": null
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 9349.73
+        },
+        "current_charges_total": {
+          "saved": null,
+          "replayed": 9349.73
+        },
+        "previous_balance": {
+          "saved": null,
+          "replayed": 0.0
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "VAT breakdown not present on supplied electricity-bill page; VATable sales and VAT require review.",
+        "subtotal/net amount is missing (null) — could not verify against total_amount (9349.73); check the source document manually.",
+        "Incomplete numbered document: received 1 page(s), printed page count is 2.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "3353055189919",
+        "invoice_date": "2023-04-23",
+        "vendor_name": "MERALCO",
+        "vendor_address": "0011 (UP) KAURAYA ST, Q.C-NEW MANILA METRO MANILA, ICP MTR- NR COR MAZARAGA",
+        "customer_name": "ELPIDIO NAPOLES ALMA JR",
+        "customer_address": "0011 (UP) KAURAYA ST TATALON Q.C-NEW MANILA METRO MANILA",
+        "subtotal": null,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 9349.73,
+        "current_charges_total": 9349.73,
+        "previous_balance": 0.0,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 33,
+      "filename": "INV-18.jpg",
+      "changes": {
+        "vendor_name": {
+          "saved": "GLOBE",
+          "replayed": "Globe"
+        },
+        "customer_name": {
+          "saved": "MRS.ROANE CHASKA SANDOVAL RICABLANCA",
+          "replayed": "Mrs.Roane Chaska Sandoval Ricablanca"
+        }
+      },
+      "review_warnings": [
+        "Missing required field: 'invoice_date'",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "1",
+        "invoice_date": null,
+        "vendor_name": "Globe",
+        "vendor_address": "Makabuhay St.Purok1.Putingkahoy",
+        "customer_name": "Mrs.Roane Chaska Sandoval Ricablanca",
+        "customer_address": "4118 Philippines",
+        "subtotal": 2014.1,
+        "tax_amount": 241.69,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 2255.79,
+        "current_charges_total": 2255.79,
+        "previous_balance": 0.0,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Monthly Recurring Fee",
+            "quantity": 1.0,
+            "unit_price": 1122.14,
+            "amount": 1122.14
+          },
+          {
+            "description": "One-time Charges",
+            "quantity": 1.0,
+            "unit_price": 891.96,
+            "amount": 891.96
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 34,
+      "filename": "INV-19.jpg",
+      "changes": {
+        "vendor_name": {
+          "saved": "MANILAELECTRIC COMPANY",
+          "replayed": "MERALCO"
+        },
+        "customer_name": {
+          "saved": "ACCOUNT NUMBER (CAN)",
+          "replayed": null
+        },
+        "subtotal": {
+          "saved": 3036.37,
+          "replayed": null
+        }
+      },
+      "review_warnings": [
+        "line_items row 1 quantity is missing or not numeric",
+        "line_items row 2 quantity is missing or not numeric",
+        "line_items row 3 quantity is missing or not numeric",
+        "line_items row 4 quantity is missing or not numeric",
+        "line_items row 5 quantity is missing or not numeric",
+        "line_items row 6 quantity is missing or not numeric",
+        "line_items row 6 unit_price is missing or not numeric",
+        "line_items row 6 amount is missing or not numeric",
+        "line_items row 7 quantity is missing or not numeric",
+        "line_items row 8 quantity is missing or not numeric",
+        "line_items row 9 quantity is missing or not numeric",
+        "line_items row 10 quantity is missing or not numeric",
+        "line_items row 11 quantity is missing or not numeric",
+        "VAT breakdown not present on supplied electricity-bill page; VATable sales and VAT require review.",
+        "subtotal/net amount is missing (null) — could not verify against total_amount (3036.37); check the source document manually.",
+        "line_items row 11: quantity * unit_price does not match amount",
+        "Incomplete numbered document: received 1 page(s), printed page count is 2.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "4116049545810",
+        "invoice_date": "2026-04-29",
+        "vendor_name": "MERALCO",
+        "vendor_address": "LOPEZLDG ORTGAS AVENE PAS QY",
+        "customer_name": null,
+        "customer_address": "Distribution (Meralco), Senior Citizen, Government Taxes, Unjversal Charges, FIT-All (Renewable), GEA-All(Renewable), Lilfeline, OtherCharges",
+        "subtotal": null,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 3036.37,
+        "current_charges_total": 3036.37,
+        "previous_balance": 0.0,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Generation",
+            "quantity": 0.0,
+            "unit_price": 0.02,
+            "amount": 0.02
+          },
+          {
+            "description": "Transmission",
+            "quantity": 0.0,
+            "unit_price": 0.02,
+            "amount": 0.02
+          },
+          {
+            "description": "System Loss",
+            "quantity": 0.0,
+            "unit_price": 0.02,
+            "amount": 0.02
+          },
+          {
+            "description": "Distribution (Meralco)",
+            "quantity": 0.0,
+            "unit_price": 0.02,
+            "amount": 0.02
+          },
+          {
+            "description": "Senior Citizen",
+            "quantity": 0.0,
+            "unit_price": 0.02,
+            "amount": 0.02
+          },
+          {
+            "description": "Unjversal Charges",
+            "quantity": 0.0,
+            "unit_price": 0.02,
+            "amount": 0.02
+          },
+          {
+            "description": "Government Taxes",
+            "quantity": 0.0,
+            "unit_price": 0.02,
+            "amount": 0.02
+          },
+          {
+            "description": "FIT-All (Renewable)",
+            "quantity": 0.0,
+            "unit_price": 0.02,
+            "amount": 0.02
+          },
+          {
+            "description": "GEA-All(Renewable)",
+            "quantity": 0.0,
+            "unit_price": 0.02,
+            "amount": 0.02
+          },
+          {
+            "description": "Lilfeline",
+            "quantity": 0.0,
+            "unit_price": 0.02,
+            "amount": 0.02
+          },
+          {
+            "description": "OtherCharges",
+            "quantity": 0.0,
+            "unit_price": 2.05,
+            "amount": 2.05
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 35,
+      "filename": "INV-21.jpg",
+      "changes": {
+        "vendor_name": {
+          "saved": "ABC SELLER",
+          "replayed": "ABC Seller"
+        },
+        "customer_name": {
+          "saved": "XYZ BUYER",
+          "replayed": "XYZ Buyer"
+        }
+      },
+      "review_warnings": [
+        "line_items row 5 quantity is missing or not numeric",
+        "line_items row 5 unit_price is missing or not numeric",
+        "line_items row 5 amount is missing or not numeric",
+        "line_items row 5: quantity * unit_price does not match amount",
+        "line_items sum to 7400.00, which does not match subtotal (5800.0) â€” subtotal may have been misread as one of the individual line amounts",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "012345",
+        "invoice_date": "2020-05-27",
+        "vendor_name": "ABC Seller",
+        "vendor_address": "Palm Avenue12.Makati City, Phillippines",
+        "customer_name": "XYZ Buyer",
+        "customer_address": "Time Plaza.Cor Taft. Manila, Philippines",
+        "subtotal": 5800.0,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 6370.0,
+        "current_charges_total": 5800.0,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "ServcesProducts&Goods Domestic",
+            "quantity": 1.0,
+            "unit_price": 2500.0,
+            "amount": 2500.0
+          },
+          {
+            "description": "Servicesroducts&GoodsExport",
+            "quantity": 1.0,
+            "unit_price": 2500.0,
+            "amount": 2500.0
+          },
+          {
+            "description": "LeisureEntertainment&Night Clubs",
+            "quantity": 1.0,
+            "unit_price": 800.0,
+            "amount": 800.0
+          },
+          {
+            "description": "ttsnialMl SR",
+            "quantity": 1.0,
+            "unit_price": 800.0,
+            "amount": 800.0
+          },
+          {
+            "description": "EstateReading ProductsInsurance",
+            "quantity": 0.0,
+            "unit_price": 800.0,
+            "amount": 800.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 36,
+      "filename": "INV-23.png",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-96879c6c",
+          "replayed": "17000000000014787013"
+        },
+        "invoice_date": {
+          "saved": "2023-12-13",
+          "replayed": "2023-11-26"
+        },
+        "vendor_name": {
+          "saved": "MACHINE SN: 597A0623",
+          "replayed": "Unknown Vendor"
+        },
+        "subtotal": {
+          "saved": 0.0,
+          "replayed": null
+        },
+        "currency": {
+          "saved": "USD",
+          "replayed": "PHP"
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "Missing required field: 'vendor_name'",
+        "subtotal/net amount is missing (null) — could not verify against total_amount (452.84); check the source document manually.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "17000000000014787013",
+        "invoice_date": "2023-11-26",
+        "vendor_name": "Unknown Vendor",
+        "vendor_address": null,
+        "customer_name": null,
+        "customer_address": null,
+        "subtotal": null,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 452.84,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 37,
+      "filename": "INV-24.png",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-1261af66",
+          "replayed": "UNVERIFIED (requires review)"
+        },
+        "vendor_name": {
+          "saved": "VILLMAN",
+          "replayed": "VillMan"
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 169995.0
+        },
+        "currency": {
+          "saved": "USD",
+          "replayed": "PHP"
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "Missing required field: 'invoice_number'",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "UNVERIFIED (requires review)",
+        "invoice_date": "2021-10-19",
+        "vendor_name": "VillMan",
+        "vendor_address": null,
+        "customer_name": null,
+        "customer_address": null,
+        "subtotal": 169995.0,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 169995.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 38,
+      "filename": "INV-25.jpg",
+      "changes": {
+        "vendor_name": {
+          "saved": "SCOMMERCE",
+          "replayed": "SCommerce Philippines, Inc"
+        },
+        "vendor_address": {
+          "saved": "Seller Address:Honest St. Cor.Determined St, CPIP Batino4027.City of Calamba Laguna, Philippines",
+          "replayed": "Seller Name:SCommerce Philippines, Inc"
+        },
+        "subtotal": {
+          "saved": 0.0,
+          "replayed": 4650.0
+        },
+        "tax_amount": {
+          "saved": 8.0,
+          "replayed": 558.0
+        },
+        "zero_rated_sales": {
+          "saved": 12.0,
+          "replayed": null
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 5208.0
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "Missing required field: 'invoice_date'",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "ISS1000010134539",
+        "invoice_date": null,
+        "vendor_name": "SCommerce Philippines, Inc",
+        "vendor_address": "Seller Name:SCommerce Philippines, Inc",
+        "customer_name": null,
+        "customer_address": null,
+        "subtotal": 4650.0,
+        "tax_amount": 558.0,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 5208.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 39,
+      "filename": "INV-26.jpg",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-4478c3ed",
+          "replayed": "2214028323741"
+        },
+        "vendor_name": {
+          "saved": "DELA CRUZ.FERNANDO LAZARO",
+          "replayed": "MERALCO"
+        },
+        "vendor_address": {
+          "saved": "61226ELGRAN0E ST",
+          "replayed": "6122 6 EL GRANOE ST"
+        },
+        "customer_name": {
+          "saved": "ACCOUNT NUMBER (CAN)",
+          "replayed": "DELA CRUZ.FERNANDO LAZARO"
+        },
+        "customer_address": {
+          "saved": "25 Jan 2024 to 24 Feb 2024",
+          "replayed": "6122 6 EL GRANOE ST GEN.T.DE LEON HEN T DE LEON VALENZUELA 144O METRO MARILA"
+        },
+        "subtotal": {
+          "saved": 1277.6,
+          "replayed": null
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 1277.6
+        },
+        "current_charges_total": {
+          "saved": null,
+          "replayed": 1277.6
+        },
+        "previous_balance": {
+          "saved": null,
+          "replayed": 0.0
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "VAT breakdown not present on supplied electricity-bill page; VATable sales and VAT require review.",
+        "Missing required field: 'invoice_date'",
+        "subtotal/net amount is missing (null) — could not verify against total_amount (1277.6); check the source document manually.",
+        "Incomplete numbered document: received 1 page(s), printed page count is 2.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "2214028323741",
+        "invoice_date": null,
+        "vendor_name": "MERALCO",
+        "vendor_address": "6122 6 EL GRANOE ST",
+        "customer_name": "DELA CRUZ.FERNANDO LAZARO",
+        "customer_address": "6122 6 EL GRANOE ST GEN.T.DE LEON HEN T DE LEON VALENZUELA 144O METRO MARILA",
+        "subtotal": null,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 1277.6,
+        "current_charges_total": 1277.6,
+        "previous_balance": 0.0,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 40,
+      "filename": "INV-27.png",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-1a514471",
+          "replayed": "2141123658608"
+        },
+        "vendor_name": {
+          "saved": "SANTOS,ROBERT POLLEDO",
+          "replayed": "MERALCO"
+        },
+        "customer_name": {
+          "saved": "ACCOUNT NUMBER (CAN)",
+          "replayed": "SANTOS,ROBERT POLLEDO"
+        },
+        "customer_address": {
+          "saved": null,
+          "replayed": "055 NATIONAL RD CAYPOMBO SANTA MARIA 3022 BULACAN"
+        },
+        "subtotal": {
+          "saved": 1502.42,
+          "replayed": null
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 1502.42
+        },
+        "current_charges_total": {
+          "saved": null,
+          "replayed": 1502.42
+        },
+        "previous_balance": {
+          "saved": null,
+          "replayed": 0.0
+        },
+        "currency": {
+          "saved": "USD",
+          "replayed": "PHP"
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "VAT breakdown not present on supplied electricity-bill page; VATable sales and VAT require review.",
+        "Missing required field: 'invoice_date'",
+        "subtotal/net amount is missing (null) — could not verify against total_amount (1502.42); check the source document manually.",
+        "Incomplete numbered document: received 1 page(s), printed page count is 2.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "2141123658608",
+        "invoice_date": null,
+        "vendor_name": "MERALCO",
+        "vendor_address": "055 NATIONAL RD",
+        "customer_name": "SANTOS,ROBERT POLLEDO",
+        "customer_address": "055 NATIONAL RD CAYPOMBO SANTA MARIA 3022 BULACAN",
+        "subtotal": null,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 1502.42,
+        "current_charges_total": 1502.42,
+        "previous_balance": 0.0,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 41,
+      "filename": "INV-28.png",
+      "changes": {
+        "vendor_name": {
+          "saved": "FOR INQUIRIES PLEASE CONTACT OUR CALLCENTER:16211(RESIDENTIAL) OR",
+          "replayed": "MERALCO"
+        },
+        "customer_name": {
+          "saved": "METERING FACILITIES WITHIN YOUR RE THIS QUARTER.",
+          "replayed": "ESGUERRA,ELINO B."
+        },
+        "subtotal": {
+          "saved": 9274.86,
+          "replayed": null
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 17972.99
+        },
+        "current_charges_total": {
+          "saved": null,
+          "replayed": 9274.86
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "VAT breakdown not present on supplied electricity-bill page; VATable sales and VAT require review.",
+        "invoice_date is in the future",
+        "subtotal/net amount is missing (null) — could not verify against total_amount (17972.99); check the source document manually.",
+        "Incomplete numbered document: received 1 page(s), printed page count is 2.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "4130N622260430",
+        "invoice_date": "2026-12-31",
+        "vendor_name": "MERALCO",
+        "vendor_address": "0088 LTBLOCK6 ST",
+        "customer_name": "ESGUERRA,ELINO B.",
+        "customer_address": "Please pay at any Meralco Business Center, CAS Permit No.:0306-116-00036-8A/AR dtMarch21, 2005",
+        "subtotal": null,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 17972.99,
+        "current_charges_total": 9274.86,
+        "previous_balance": 8698.13,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 42,
+      "filename": "INV-29.jpg",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-bddd4715",
+          "replayed": "NOTARIZE185857"
+        },
+        "invoice_date": {
+          "saved": null,
+          "replayed": "2026-02-22"
+        },
+        "vendor_name": {
+          "saved": "O PROOF.",
+          "replayed": "Notarize,Inc.dba Proof"
+        },
+        "customer_name": {
+          "saved": "INVOICE NUMBER",
+          "replayed": "Invoice number"
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 400.0
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "NOTARIZE185857",
+        "invoice_date": "2026-02-22",
+        "vendor_name": "Notarize,Inc.dba Proof",
+        "vendor_address": "867 Boylston Street, 5th Floor, #1656",
+        "customer_name": "Invoice number",
+        "customer_address": "1234 Company Drive, BostonMA 02050",
+        "subtotal": 400.0,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 400.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "USD",
+        "line_items": [
+          {
+            "description": "Minimum commitment",
+            "quantity": 1.0,
+            "unit_price": 40.0,
+            "amount": 40.0
+          },
+          {
+            "description": "Platform fee",
+            "quantity": 1.0,
+            "unit_price": 300.0,
+            "amount": 300.0
+          },
+          {
+            "description": "IHN first seal",
+            "quantity": 6.0,
+            "unit_price": 10.0,
+            "amount": 60.0
+          },
+          {
+            "description": "IHN additional seal",
+            "quantity": 2.0,
+            "unit_price": 0.0,
+            "amount": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 43,
+      "filename": "INV-30.jpg",
+      "changes": {
+        "invoice_date": {
+          "saved": null,
+          "replayed": "2025-10-09"
+        },
+        "vendor_name": {
+          "saved": "PLDT INC",
+          "replayed": "PLDT INC."
+        },
+        "vendor_address": {
+          "saved": "RamonGaesongcoeidoMeida Ave",
+          "replayed": null
+        },
+        "current_charges_total": {
+          "saved": null,
+          "replayed": 2998.0
+        },
+        "previous_balance": {
+          "saved": null,
+          "replayed": 0.0
+        },
+        "currency": {
+          "saved": "USD",
+          "replayed": "PHP"
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "tax_amount exceeds total_amount",
+        "subtotal (2677.68) + tax (3250.0) + zero-rated (0) + vat-exempt (0) - discount (0) - withholding tax (0) = 5927.68, which does not match current_charges_total (2998.0)",
+        "current_charges_total (2998.0) + previous_balance (0.0) = 2998.00, which does not match total_amount/Amount to Pay (2999.0)",
+        "Incomplete numbered document: received 1 page(s), printed page count is 3.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "0681339375",
+        "invoice_date": "2025-10-09",
+        "vendor_name": "PLDT INC.",
+        "vendor_address": null,
+        "customer_name": null,
+        "customer_address": "DUE DATE:, HAROLDVALENCIA DAYAO, AMOUNT DUE, 1152B SAN DIEGO ST SAMPALOC DISTRICT MANILA, MANILA CITY, November 2, 2025, 2, 999.00, 0314524195Please present this number when paying, 02625$6996, TOTAL AMOUNT DUE, October9, 2025, Achrowisdgoment Centi6cate No.:AC_120_100034_00066G, Date kcee-102310023, Inclasive Satiorc000000001-1400000009, Payment Reminder",
+        "subtotal": 2677.68,
+        "tax_amount": 3250.0,
+        "withholding_tax": null,
+        "zero_rated_sales": 0.0,
+        "vat_exempt_sales": null,
+        "total_amount": 2999.0,
+        "current_charges_total": 2998.0,
+        "previous_balance": 0.0,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 44,
+      "filename": "INV-31.png",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-d7a9e9ec",
+          "replayed": "0448162-171"
+        },
+        "vendor_name": {
+          "saved": "PLDT INC",
+          "replayed": "PLDT INC."
+        },
+        "vendor_address": {
+          "saved": "Ramon Cojuangco Bldg.Makati Ave. Makati City 1200",
+          "replayed": null
+        },
+        "subtotal": {
+          "saved": 1147.9,
+          "replayed": 2347.23
+        },
+        "current_charges_total": {
+          "saved": null,
+          "replayed": 2628.9
+        },
+        "previous_balance": {
+          "saved": 2114.13,
+          "replayed": -2114.13
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "Missing required field: 'invoice_date'",
+        "total_amount must not be negative",
+        "tax_amount exceeds total_amount",
+        "total_amount must be greater than 0",
+        "current_charges_total (2628.9) + previous_balance (-2114.13) = 514.77, which does not match total_amount/Amount to Pay (-1147.9)",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "0448162-171",
+        "invoice_date": null,
+        "vendor_name": "PLDT INC.",
+        "vendor_address": null,
+        "customer_name": null,
+        "customer_address": "BENEDICK CONRADR GLIFUNIA, DUE DATE:, AMOUNT DUE:, 133 A BONIFACIO ST BGY SAN JOSE 1 NOVELETA, CAVITE, November4, 2021, -1, 147.90, 00236607212-Please present this number when paying, 04464388182, TOTAL AMOUNT DUE, October 112021, BIR CAS Permit Number106S_0128_PTU_CAS_005628, Effectivity Date:June 1, 2019",
+        "subtotal": 2347.23,
+        "tax_amount": 281.67,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": -1147.9,
+        "current_charges_total": 2628.9,
+        "previous_balance": -2114.13,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Monthly Service Fee and Other Basic Charges",
+            "quantity": 1.0,
+            "unit_price": 2320.53,
+            "amount": 2320.53
+          },
+          {
+            "description": "Usage Charges",
+            "quantity": 1.0,
+            "unit_price": 26.7,
+            "amount": 26.7
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 45,
+      "filename": "INV-32.jpg",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-a6aeaeb7",
+          "replayed": "UNVERIFIED (requires review)"
+        },
+        "vendor_name": {
+          "saved": "FOR FURTHER ASSISTANCE:",
+          "replayed": "MERALCO"
+        },
+        "customer_name": {
+          "saved": "ACCOUNT NUMBER (CAN",
+          "replayed": "PESTANAESTELA C"
+        },
+        "subtotal": {
+          "saved": 4383.94,
+          "replayed": null
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": null
+        },
+        "current_charges_total": {
+          "saved": null,
+          "replayed": 4383.94
+        },
+        "currency": {
+          "saved": "USD",
+          "replayed": "PHP"
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "VAT breakdown not present on supplied electricity-bill page; VATable sales and VAT require review.",
+        "Missing required field: 'invoice_number'",
+        "Missing required field: 'total_amount'",
+        "Incomplete numbered document: received 1 page(s), printed page count is 2.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "UNVERIFIED (requires review)",
+        "invoice_date": "2021-06-16",
+        "vendor_name": "MERALCO",
+        "vendor_address": "0044 BIC NATIONAL RD, METRO MANILA, MAKATI BUSINESS CTR, MAKATI CITY",
+        "customer_name": "PESTANAESTELA C",
+        "customer_address": "0044 B(C) NATIONAL WEST REMBO WEST REMG, METRO MANILA, Billling Info",
+        "subtotal": null,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": null,
+        "current_charges_total": 4383.94,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 46,
+      "filename": "INV-33.jpg",
+      "changes": {
+        "subtotal": {
+          "saved": 0.0,
+          "replayed": 1116.08
+        },
+        "tax_amount": {
+          "saved": null,
+          "replayed": 133.92
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 1250.0
+        },
+        "current_charges_total": {
+          "saved": null,
+          "replayed": 1250.0
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "000000000",
+        "invoice_date": "2025-08-06",
+        "vendor_name": "CONVERGE",
+        "vendor_address": "New Street Building, MacArthur Highay, Balibago, Angeles City, Pampanga, Philippines",
+        "customer_name": null,
+        "customer_address": null,
+        "subtotal": 1116.08,
+        "tax_amount": 133.92,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 1250.0,
+        "current_charges_total": 1250.0,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 47,
+      "filename": "Addl Invoice_Page_3.pdf",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-e56af148",
+          "replayed": "PH91MKP0135619"
+        },
+        "invoice_date": {
+          "saved": null,
+          "replayed": "2026-08-06"
+        },
+        "vendor_name": {
+          "saved": "SGV: SYCIP, GORRES, VELAYO & CO.",
+          "replayed": "SGV: Sycip, Gorres, Velayo & CO."
+        },
+        "customer_name": {
+          "saved": "DOCUMENT NO.",
+          "replayed": "Document No."
+        },
+        "subtotal": {
+          "saved": 0.0,
+          "replayed": 10500.0
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 11760.0
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "PH91MKP0135619",
+        "invoice_date": "2026-08-06",
+        "vendor_name": "SGV: Sycip, Gorres, Velayo & CO.",
+        "vendor_address": "6760 Ayala Avenue, San Lorenzo, NCR, Fourth District, 1226 City of Makati, Philippines",
+        "customer_name": "Document No.",
+        "customer_address": "U 2102 21/F One Corporate Ctr Condo, J Vargas cor Meralco Ave, Brgy San Antonio Ortigas Center, Pasig City 1605",
+        "subtotal": 10500.0,
+        "tax_amount": 1260.0,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 11760.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Fee",
+            "quantity": 1.0,
+            "unit_price": 10000.0,
+            "amount": 10000.0
+          },
+          {
+            "description": "Expense",
+            "quantity": 1.0,
+            "unit_price": 500.0,
+            "amount": 500.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 48,
+      "filename": "Addl Invoice_Page_4.pdf",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-44a7741b",
+          "replayed": "3219"
+        },
+        "vendor_name": {
+          "saved": "# 79 P. CRUZ STREET,BRGY. OLD ZANIGA,",
+          "replayed": "RESPONSIBLE SERVICES INC."
+        },
+        "customer_name": {
+          "saved": "TIL",
+          "replayed": "TSUKIDENGLOBAL SOLUTIONS, INC."
+        },
+        "subtotal": {
+          "saved": 0.0,
+          "replayed": 85963.99
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "3219",
+        "invoice_date": "2026-08-13",
+        "vendor_name": "RESPONSIBLE SERVICES INC.",
+        "vendor_address": "# 79 P. Cruz Street, Brgy. Old Zaniga, 1550 City of Mandaluyong NCR, Second District Philippines",
+        "customer_name": "TSUKIDENGLOBAL SOLUTIONS, INC.",
+        "customer_address": "21st Floor One Corporate Center, Julia Vargas Corner Meralco Ave, Ortigas Center, Pasig City, UNIT COST, QUANTITY, AMOUNT",
+        "subtotal": 85963.99,
+        "tax_amount": 10315.68,
+        "withholding_tax": 1719.28,
+        "zero_rated_sales": 0.0,
+        "vat_exempt_sales": 0.0,
+        "total_amount": 94560.39,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 49,
+      "filename": "GlobeInvoice1.jpg",
+      "changes": {
+        "vendor_name": {
+          "saved": "DEHE.ROM PHBANAS.",
+          "replayed": "GLOBE BUSINESS: INNOVE COMMUNICATIONS, INC."
+        },
+        "currency": {
+          "saved": "USD",
+          "replayed": "PHP"
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "Incomplete numbered document: received 1 page(s), printed page count is 2.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "IN000743093867",
+        "invoice_date": "2025-01-15",
+        "vendor_name": "GLOBE BUSINESS: INNOVE COMMUNICATIONS, INC.",
+        "vendor_address": "32nd Street corner 7th Avenue, Bonifacio Global City, Taguig, Philippines 1634",
+        "customer_name": "NORTHERN MINDANAO COLLEGES",
+        "customer_address": "ATEGASTREET Poblacion 2,Cabadbaran",
+        "subtotal": 4257.0,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 5947.51,
+        "current_charges_total": 4198.0,
+        "previous_balance": 1749.51,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Monthly Plan",
+            "quantity": 1.0,
+            "unit_price": 3499.0,
+            "amount": 3499.0
+          },
+          {
+            "description": "Add-ons",
+            "quantity": 1.0,
+            "unit_price": 758.0,
+            "amount": 758.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 50,
+      "filename": "INV-38.png",
+      "changes": {
+        "vendor_name": {
+          "saved": "ACE",
+          "replayed": "ACE HARDWARE PHILIPPINES INC"
+        },
+        "customer_name": {
+          "saved": "NO789012",
+          "replayed": "No789012"
+        },
+        "tax_amount": {
+          "saved": 566.56,
+          "replayed": 586.56
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 5474.56
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "1234567890",
+        "invoice_date": "2026-05-13",
+        "vendor_name": "ACE HARDWARE PHILIPPINES INC",
+        "vendor_address": "Manila A.Roxas Hwy, Clark Freeport, 123MAPLE ST.",
+        "customer_name": "No789012",
+        "customer_address": null,
+        "subtotal": 4888.0,
+        "tax_amount": 586.56,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 5474.56,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Power Drill",
+            "quantity": 1.0,
+            "unit_price": 3495.0,
+            "amount": 3495.0
+          },
+          {
+            "description": "Screwdriver Set",
+            "quantity": 1.0,
+            "unit_price": 695.0,
+            "amount": 695.0
+          },
+          {
+            "description": "MeasuringTape",
+            "quantity": 2.0,
+            "unit_price": 349.0,
+            "amount": 698.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 51,
+      "filename": "INV-39.png",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-78e5de2c",
+          "replayed": "ISINVWA000039616110"
+        },
+        "vendor_name": {
+          "saved": "SHOPEEPAY PHILIPPINES, INC",
+          "replayed": "ShopeePay Philippines, Inc"
+        },
+        "zero_rated_sales": {
+          "saved": null,
+          "replayed": 0.0
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "ISINVWA000039616110",
+        "invoice_date": "2026-01-31",
+        "vendor_name": "ShopeePay Philippines, Inc",
+        "vendor_address": "46F The Podium West Tower Ortigas Center Wack-Wack Greenhills",
+        "customer_name": "DHAVID JAMES CONSIGO OBTINA JR",
+        "customer_address": "DHAVID JAMES CONSIGO OBTINA JR, Palico St, Dacanlao, Calaca, South Luzon, Batangas4212, Amount, 13.39",
+        "subtotal": 13.39,
+        "tax_amount": 1.61,
+        "withholding_tax": null,
+        "zero_rated_sales": 0.0,
+        "vat_exempt_sales": 0.0,
+        "total_amount": 15.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 52,
+      "filename": "INV-39-2.png",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-536c2584",
+          "replayed": "ISORWA000001492046"
+        },
+        "vendor_name": {
+          "saved": "SHOPEEPAYPHILIPPINES,INC",
+          "replayed": "ShopeePayPhilippines,Inc"
+        },
+        "vendor_address": {
+          "saved": "37/F Net Park Bldg.5th Ave.Bonifacio Global City, Fort Bonifacio 1634, Taguig CityNCR, Fourth District Philippines",
+          "replayed": "37/F Net Park Bldg.5th Ave.Bonifacio Global City, Fort Bonifacio 1634, Taguig City NCR, Fourth District Philippines"
+        },
+        "customer_name": {
+          "saved": null,
+          "replayed": "ELMAR IBARRA MUJAR"
+        },
+        "subtotal": {
+          "saved": 0.0,
+          "replayed": 26.79
+        },
+        "zero_rated_sales": {
+          "saved": null,
+          "replayed": 0.0
+        },
+        "total_amount": {
+          "saved": 26.79,
+          "replayed": 30.0
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "ISORWA000001492046",
+        "invoice_date": "2024-02-29",
+        "vendor_name": "ShopeePayPhilippines,Inc",
+        "vendor_address": "37/F Net Park Bldg.5th Ave.Bonifacio Global City, Fort Bonifacio 1634, Taguig City NCR, Fourth District Philippines",
+        "customer_name": "ELMAR IBARRA MUJAR",
+        "customer_address": "ELMAR IBARRA MUJAR, Blk 2 center plain home, poblacion san, pascual batangas, Poblacion, San Pascual, South Luzon, Batangas 4204, Receipt Amount in PHP, Functional Amount in PHP, 30.00",
+        "subtotal": 26.79,
+        "tax_amount": 3.21,
+        "withholding_tax": 0.0,
+        "zero_rated_sales": 0.0,
+        "vat_exempt_sales": 0.0,
+        "total_amount": 30.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 53,
+      "filename": "INV-40.png",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-43ac2183",
+          "replayed": "NOTARIZE185857"
+        },
+        "invoice_date": {
+          "saved": null,
+          "replayed": "2026-02-22"
+        },
+        "vendor_name": {
+          "saved": "O PROOF.",
+          "replayed": "Notarize, Inc. dba Proof"
+        },
+        "customer_name": {
+          "saved": "INVOICE NUMBER",
+          "replayed": "Invoice number"
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 400.0
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "NOTARIZE185857",
+        "invoice_date": "2026-02-22",
+        "vendor_name": "Notarize, Inc. dba Proof",
+        "vendor_address": "867 Boylston Street, 5th Floor, #1656",
+        "customer_name": "Invoice number",
+        "customer_address": "1234 Company Drive, Boston, MA 02050",
+        "subtotal": 400.0,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 400.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "USD",
+        "line_items": [
+          {
+            "description": "Minimum commitment",
+            "quantity": 1.0,
+            "unit_price": 40.0,
+            "amount": 40.0
+          },
+          {
+            "description": "Platform fee",
+            "quantity": 1.0,
+            "unit_price": 300.0,
+            "amount": 300.0
+          },
+          {
+            "description": "IHN first seal",
+            "quantity": 6.0,
+            "unit_price": 10.0,
+            "amount": 60.0
+          },
+          {
+            "description": "IHN additional seal",
+            "quantity": 2.0,
+            "unit_price": 0.0,
+            "amount": 0.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 54,
+      "filename": "INV-42.png",
+      "changes": {
+        "vendor_name": {
+          "saved": "INVOICE NO:PG-2026-004567",
+          "replayed": "Puregold Price Club Inc."
+        },
+        "vendor_address": {
+          "saved": "E.Rodriguez Jr.Ave, Bagumbayan, Quezon City, MetroManila",
+          "replayed": null
+        },
+        "tax_amount": {
+          "saved": null,
+          "replayed": 158.76
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 1481.76
+        },
+        "currency": {
+          "saved": "USD",
+          "replayed": "PHP"
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "PG-2026-004567",
+        "invoice_date": "2026-05-14",
+        "vendor_name": "Puregold Price Club Inc.",
+        "vendor_address": null,
+        "customer_name": null,
+        "customer_address": null,
+        "subtotal": 1323.0,
+        "tax_amount": 158.76,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 1481.76,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Rice Skg",
+            "quantity": 2.0,
+            "unit_price": 265.0,
+            "amount": 530.0
+          },
+          {
+            "description": "Cooking Oil 1L",
+            "quantity": 3.0,
+            "unit_price": 125.0,
+            "amount": 375.0
+          },
+          {
+            "description": "Instant Noodles (Pack)",
+            "quantity": 5.0,
+            "unit_price": 48.0,
+            "amount": 240.0
+          },
+          {
+            "description": "Toothpaste",
+            "quantity": 2.0,
+            "unit_price": 89.0,
+            "amount": 178.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 55,
+      "filename": "INV-02.png",
+      "changes": {
+        "vendor_name": {
+          "saved": "COMMERCIAL INVOICE",
+          "replayed": "MS.SASA C.ARANETA"
+        },
+        "vendor_address": {
+          "saved": "1575 PRINCETON ST, IA KARAMU STREET, METRO MANILA",
+          "replayed": "1575 PRINCETON ST. WACK-WACK VILLAGE MANDALUYONG METRO MANILA PHILIPPINES1555"
+        },
+        "customer_name": {
+          "saved": null,
+          "replayed": "MR.IRAWADI JOHN OUD"
+        },
+        "customer_address": {
+          "saved": null,
+          "replayed": "IA KARAMU STREET TE ATATU PENINSULA AUCKLAND 0610 NEW ZEALAND"
+        },
+        "subtotal": {
+          "saved": 0.0,
+          "replayed": 110.0
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 110.0
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "O0001",
+        "invoice_date": "2018-05-09",
+        "vendor_name": "MS.SASA C.ARANETA",
+        "vendor_address": "1575 PRINCETON ST. WACK-WACK VILLAGE MANDALUYONG METRO MANILA PHILIPPINES1555",
+        "customer_name": "MR.IRAWADI JOHN OUD",
+        "customer_address": "IA KARAMU STREET TE ATATU PENINSULA AUCKLAND 0610 NEW ZEALAND",
+        "subtotal": 110.0,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 110.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 56,
+      "filename": "INV-05.jpg",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-5d993d5c",
+          "replayed": "4132095502586"
+        },
+        "invoice_date": {
+          "saved": "2022-08-23",
+          "replayed": "2022-09-24"
+        },
+        "vendor_name": {
+          "saved": "RENATO DIOCALES",
+          "replayed": "MERALCO"
+        },
+        "vendor_address": {
+          "saved": "0004LT BLOCK25 ST",
+          "replayed": "0004 LT BLOCK25 ST"
+        },
+        "customer_name": {
+          "saved": "ACCOUNT NUMBER (CAN)",
+          "replayed": "RENATO DIOCALES"
+        },
+        "customer_address": {
+          "saved": "23 Aug 2022 to 22 Sep 2022",
+          "replayed": "0004 LT BLOCK25 ST ACM WOODST OCK PHI SUBD IMUS IMUS4103 CAVITE"
+        },
+        "subtotal": {
+          "saved": 5.64,
+          "replayed": null
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 5.64
+        },
+        "current_charges_total": {
+          "saved": null,
+          "replayed": 5.64
+        },
+        "previous_balance": {
+          "saved": null,
+          "replayed": 0.0
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "VAT breakdown not present on supplied electricity-bill page; VATable sales and VAT require review.",
+        "subtotal/net amount is missing (null) — could not verify against total_amount (5.64); check the source document manually.",
+        "Incomplete numbered document: received 1 page(s), printed page count is 2.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "4132095502586",
+        "invoice_date": "2022-09-24",
+        "vendor_name": "MERALCO",
+        "vendor_address": "0004 LT BLOCK25 ST",
+        "customer_name": "RENATO DIOCALES",
+        "customer_address": "0004 LT BLOCK25 ST ACM WOODST OCK PHI SUBD IMUS IMUS4103 CAVITE",
+        "subtotal": null,
+        "tax_amount": null,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 5.64,
+        "current_charges_total": 5.64,
+        "previous_balance": 0.0,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 57,
+      "filename": "INV-07.jpg",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-913bf1a2",
+          "replayed": "0424128343"
+        },
+        "invoice_date": {
+          "saved": null,
+          "replayed": "2019-10-17"
+        },
+        "vendor_address": {
+          "saved": "Ramon Cojuangco Bidg.Makati Ave.Makati City1200",
+          "replayed": null
+        },
+        "subtotal": {
+          "saved": 0.0,
+          "replayed": 8000.0
+        },
+        "tax_amount": {
+          "saved": null,
+          "replayed": 960.0
+        },
+        "current_charges_total": {
+          "saved": null,
+          "replayed": 8960.0
+        },
+        "previous_balance": {
+          "saved": null,
+          "replayed": 44800.0
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "Incomplete numbered document: received 1 page(s), printed page count is 3.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "0424128343",
+        "invoice_date": "2019-10-17",
+        "vendor_name": "PLDT INC.",
+        "vendor_address": null,
+        "customer_name": null,
+        "customer_address": null,
+        "subtotal": 8000.0,
+        "tax_amount": 960.0,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 53760.0,
+        "current_charges_total": 8960.0,
+        "previous_balance": 44800.0,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Monthly Service Fee and Other Basic Charges",
+            "quantity": 1.0,
+            "unit_price": 8000.0,
+            "amount": 8000.0
+          }
+        ]
+      }
+    },
+    {
+      "saved_id": 58,
+      "filename": "INV-12.png",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-9968db3e",
+          "replayed": "ISORPF000000318183"
+        },
+        "vendor_name": {
+          "saved": "SHOPEE PHILIPPINES INC",
+          "replayed": "Shopee Philippines Inc"
+        },
+        "vendor_address": {
+          "saved": "37/FNet ParkBldg, 5th Ave.Bonifacio Global City, Fort Bonifacio, Taguig City, Philippines",
+          "replayed": "37/F Net Park Bldg, 5th Ave.Bonifacio Global City, Fort Bonifacio, Taguig City, Philippines"
+        },
+        "customer_name": {
+          "saved": null,
+          "replayed": "Jassys Boutique"
+        },
+        "subtotal": {
+          "saved": 0.0,
+          "replayed": 60.71
+        },
+        "tax_amount": {
+          "saved": null,
+          "replayed": 7.29
+        },
+        "zero_rated_sales": {
+          "saved": null,
+          "replayed": 0.0
+        },
+        "total_amount": {
+          "saved": 0.0,
+          "replayed": 68.0
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "ISORPF000000318183",
+        "invoice_date": "2023-02-28",
+        "vendor_name": "Shopee Philippines Inc",
+        "vendor_address": "37/F Net Park Bldg, 5th Ave.Bonifacio Global City, Fort Bonifacio, Taguig City, Philippines",
+        "customer_name": "Jassys Boutique",
+        "customer_address": "7h Basilio street Arnai corner Regilado Avenue Barangay Fairview QuezonCity, Metro, Manila, 1118",
+        "subtotal": 60.71,
+        "tax_amount": 7.29,
+        "withholding_tax": null,
+        "zero_rated_sales": 0.0,
+        "vat_exempt_sales": 0.0,
+        "total_amount": 68.0,
+        "current_charges_total": null,
+        "previous_balance": null,
+        "currency": "PHP",
+        "line_items": []
+      }
+    },
+    {
+      "saved_id": 59,
+      "filename": "INV-14.jpg",
+      "changes": {
+        "invoice_number": {
+          "saved": "UNVERIFIED-125e5488",
+          "replayed": "UNVERIFIED (requires review)"
+        },
+        "invoice_date": {
+          "saved": null,
+          "replayed": "2018-09-12"
+        },
+        "vendor_name": {
+          "saved": "APLDT",
+          "replayed": "PLDT INC."
+        },
+        "subtotal": {
+          "saved": 0.0,
+          "replayed": 2763.39
+        },
+        "current_charges_total": {
+          "saved": null,
+          "replayed": 3095.0
+        },
+        "previous_balance": {
+          "saved": null,
+          "replayed": -5.7
+        },
+        "currency": {
+          "saved": "USD",
+          "replayed": "PHP"
+        }
+      },
+      "review_warnings": [
+        "Model extraction unavailable: OCR-only recovery requires manual review.",
+        "Missing required field: 'invoice_number'",
+        "The supplied run did not complete vision verification; inspect the original."
+      ],
+      "replayed_fields": {
+        "invoice_number": "UNVERIFIED (requires review)",
+        "invoice_date": "2018-09-12",
+        "vendor_name": "PLDT INC.",
+        "vendor_address": "#49, DIAMOND STREET, DONA FRANCISCA HOMES",
+        "customer_name": null,
+        "customer_address": null,
+        "subtotal": 2763.39,
+        "tax_amount": 331.61,
+        "withholding_tax": null,
+        "zero_rated_sales": null,
+        "vat_exempt_sales": null,
+        "total_amount": 3089.3,
+        "current_charges_total": 3095.0,
+        "previous_balance": -5.7,
+        "currency": "PHP",
+        "line_items": [
+          {
+            "description": "Monthly Service Fee and Other Basic Charges",
+            "quantity": 1.0,
+            "unit_price": 2763.39,
+            "amount": 2763.39
+          }
+        ]
+      }
+    }
+  ]
+}

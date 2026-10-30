@@ -123,24 +123,16 @@ def detect_boxes(image_path: str) -> list:
             for entry in raw]
 
 
-def recognize_crop(crop, cls: bool = True) -> dict:
+def recognize_crop(crop, classify_angle: bool = True) -> dict:
     """
     Recognition-only pass on an already-cropped line/word image (numpy
     array, BGR). Used by the hybrid router to read a single region that's
     already been classified as printed text.
 
-    cls: run PaddleOCR's 180-degree angle classifier first (default). With
-    cls=True an upside-down crop is silently flipped upright BEFORE
-    recognition, so it reads just as well as an upright one. That is what
-    you want when reading text, but it makes the result useless as a
-    signal for "is this page upside down?" — the page-orientation probe in
-    ocr/ocr_engine.py therefore passes cls=False so an upside-down crop
-    comes back as low-confidence garbage and an upright one as real text.
-
     Returns: {"text": str, "confidence": float}
     """
     ocr = _get_paddle_instance()
-    result = ocr.ocr(crop, cls=cls, det=False, rec=True)
+    result = ocr.ocr(crop, cls=classify_angle, det=False, rec=True)
     if not result or not result[0]:
         return {"text": "", "confidence": 0.0}
     text, conf = result[0][0]

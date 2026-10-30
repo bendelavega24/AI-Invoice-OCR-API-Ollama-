@@ -364,11 +364,10 @@ def test_ollama_text_request_is_exactly_the_original_payload(monkeypatch):
     assert seen["url"] == f"{settings.OLLAMA_HOST}/api/generate"
     assert seen["payload"] == {
         "model": settings.OLLAMA_MODEL, "prompt": "PROMPT", "stream": False, "format": "json",
-        "keep_alive": settings.OLLAMA_KEEP_ALIVE,
-        "options": {"temperature": settings.LLM_TEMPERATURE, "num_ctx": settings.OLLAMA_NUM_CTX},
+        "keep_alive": settings.OLLAMA_KEEP_ALIVE, "options": {"temperature": settings.LLM_TEMPERATURE, "num_predict": settings.LLM_MAX_TOKENS, "num_ctx": settings.LLM_CONTEXT_TOKENS},
     }
     assert seen["timeout"] == settings.OLLAMA_TIMEOUT_SECONDS and seen["extra"] == {}
-    assert "provider" not in trace and "fallback_from" not in trace
+    assert trace["provider"] == "ollama" and "fallback_from" not in trace
 
 
 def test_ollama_timeout_behaviour_and_messages_are_the_original(monkeypatch):
@@ -378,7 +377,8 @@ def test_ollama_timeout_behaviour_and_messages_are_the_original(monkeypatch):
     with pytest.raises(extractor.ExtractionError) as e:
         extractor._call_ollama("x", {})
     assert len(calls) == 2
-    assert str(e.value) == f"Ollama request timed out after 2 attempt(s), {settings.OLLAMA_TIMEOUT_SECONDS}s each."
+    assert "Ollama request timed out after 2 attempt(s)" in str(e.value)
+    assert f"configured request limit={settings.OLLAMA_TIMEOUT_SECONDS}s" in str(e.value)
 
 
 def test_ollama_search_request_is_exactly_the_original_payload(monkeypatch):

@@ -1,102 +1,174 @@
-# AI Invoice OCR — Version 6 operating guide
+> October 15 repair (v6): read [READ_FIRST_REPAIR_V6.md](READ_FIRST_REPAIR_V6.md) before upgrading. It supersedes older deadline instructions.
 
-AI Invoice OCR is a Python/Streamlit desktop-oriented invoice capture, extraction, validation and reporting system using SQLite. Its OCR stack includes PaddleOCR for printed text and optional TrOCR for handwriting. An OpenAI-compatible API such as Groq can run extraction; Ollama provides an optional local model path. External API processing sends invoice content to the selected provider, so use only approved documents and observe your organization's data policies.
+# AI-Invoice-OCR
 
-## Setup and launch
+AI-assisted invoice extraction for printed and handwritten documents: image preprocessing,
+PaddleOCR (plus TrOCR for handwriting), structured LLM extraction, evidence checks, validation,
+and SQLite storage. Choose Groq API or local Ollama. **API mode transmits invoice content
+and images to a cloud provider**; use local-only mode when required by data-handling rules.
 
-1. Install Python and the dependencies: `pip install -r requirements.txt`.
-2. Copy `.env.example` to `.env`, configure `LLM_PROVIDER`, `LLM_API_KEY`, `LLM_BASE_URL` and `LLM_MODEL` for your API provider. For a local Ollama setup, select the Ollama provider and install/pull the configured local model.
-3. Use `python app.py ui` to launch the Streamlit interface. See `SETUP_SERVER.md` for office/LAN deployment and login details. Never distribute the `.env` file or API keys.
-4. Keep `data/invoices.db`, processed invoice originals and application storage backed up before replacing a version.
+## Features
 
-## Uploading and scanning
-
-**Exactly one invoice per file.** Do not upload a PDF or image containing two or more independent invoices. Multi-invoice input is not supported because it increases processing time and reduces accuracy. Split different invoices into separate files first. You may upload several separate files in one batch, provided each contains only one invoice. Multiple pages belonging to a single invoice can be used when page continuation is clearly indicated; check the History preview to ensure every page is present.
-
-For a scanner, **scan one invoice at a time**. Scan subsequent pages only if they are part of that same invoice. Use 300 DPI as a starting point, keep page edges visible, and avoid blur, shadows or unreadable handwriting. See `SCANNER_PRINT_SETUP.md` for device setup and printing.
-
-## Processing and review
-
-The pipeline reads uploaded pages, performs preprocessing and OCR, invokes the configured language model, normalizes extracted fields, validates amounts, and saves accepted invoice records in SQLite. Review invoice number, seller/customer identification, date, tax IDs, addresses, handwritten entries and line items before relying on results. OCR and generative AI can misread faint writing or aligned tables. Rejected or failed documents should be corrected and resubmitted; do not assume partially extracted data is reliable.
-
-Validation uses `Total Amount Due = Vatable Sales + VAT + Zero-Rated Sales + VAT-Exempt Sales − Discount − Withholding Tax`. A printed withholding tax is a deduction separate from discounts. Explicit printed zero line-item prices must not be replaced by guessed prices. The equation only applies when the displayed fields represent the same tax basis and period; a balanced result alone does not prove the extraction is correct.
-
-## Reference documents
-
-- `SCANNER_PRINT_SETUP.md`: scanner and printer setup, hardware caveats.
-- `SETUP_SERVER.md`: Windows/network deployment.
-- `docs/technical_reference.md`: application architecture, API, troubleshooting and QA limitations.
-- `docs/qa_test_cases.csv`: existing QA case reference data.
-
-## Notes
-
-Free provider plans may enforce request-size (HTTP 413) and rate (HTTP 429) limits, and model behavior can differ per call. Reduce image payload resolution or number of pages and retry at a later time where appropriate; verify the provider's current policies. Use local inference if confidential documents must remain on-device.
+- Multi-engine OCR with automatic fallback and image preprocessing (deskew,
+  denoise, adaptive threshold)
+- Schema-constrained LLM extraction with automatic self-correction retries
+- Business-rule validation (totals reconciliation, required fields, currency
+  format) and a per-invoice confidence score
+- SQLite storage via SQLAlchemy, with vendor deduplication
+- Streamlit UI: Upload, Dashboard (spend analytics), History, Reports
+  (Excel/CSV/PDF export), and Activity Log
+- Natural-language search on History, Reports, and Log; the configured
+  text model interprets search filters without executing raw model-generated SQL
+- Optional FastAPI REST API for integrations
+- Cloud API or local Ollama processing; invoice files stay on your PC in local mode
 
 
-## October 20, 2026 QA update: results and validation
-- For clearly formatted retail tables, post-processing now preserves the item-by-item printed Qty, Unit Price and Total Unit Price, including rows with a printed zero amount.
-- On the Dashboard, **Spend by Month** uses invoice dates by default. Select **Upload date** to view upload-based monthly totals. Months represented by only one data point now display as bars.
-- Unresolved financial and extraction validation checks display on the **Upload** page and under the selected invoice on **History**. Some legitimate credits and account statements require manual reconciliation; the system does not silently change an inconsistent printed Total Amount Due.
-- **Incomplete/blank invoices are warnings**, separate from a processing exception; duplicates are warnings too.
-- If upgrading from an earlier version, **back up your `.env`, data folder, and storage folder** before installing. SQLite automatically adds a nullable `validation_issues` field; previous records remain unchanged until reprocessed.
-- Never use unverified/unclear invoice information as an authoritative amount to pay. See `MODIFICATION_STATUS.md` for case-by-case QA findings and outstanding limitations.
+## Default API: Groq Qwen3.8 27B
 
-## Field-level evidence and review (October 21, 2026)
+Use the OpenAI-compatible Groq endpoint in your private **.env** (never commit API keys):
 
-Each newly processed invoice retains **per-field evidence records** (including every extracted line-item description, quantity, unit price and total amount) in SQLite as JSON in `invoices.field_evidence`. The prior single overall invoice confidence remains **internal**. The History screen deliberately hides all confidence percentages: normal fields show only their values, and fields requiring verification receive an amber highlight with a **⚠ Verify** label. The line-item table retains only four useful columns (Item, Qty, Unit Price, Total Unit Price); individual questionable cells are highlighted amber. A collapsed **View verification reasons** section lists details on demand. Upload and Edit continue to surface verification issues.
+```
+LLM_PROVIDER=api
+LLM_API_KEY=your-groq-api-key
+LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_MODEL=qwen/qwen3.8-27b
+DEFAULT_CURRENCY=PHP
+```
 
-The underlying scores are **heuristic evidence-support scores, not calibrated probabilities that a field is correct**; they are stored but are no longer shown as percentages in History. They use exact/partial OCR matches, available OCR line confidence, proximity of numbers to their line-item description, arithmetic checks and unresolved validation issues. A numerical value merely appearing somewhere on a receipt does not establish the correct owner. If a value is unsupported or conflicts with arithmetic, the interface asks for manual verification. Optional fields not present on the document are marked *not provided*, not automatically treated as errors; app-derived fields such as Category do not receive fake OCR scores.
+These model/URL defaults are also in `config/settings.py` and `.env.example`.
+Existing `.env` values take precedence: change an old OpenRouter URL/model in `.env` or the
+app will continue using them. Restart after editing. To use **Ollama only**, select Ollama
+in the sidebar or set `LLM_PROVIDER=ollama`. A missing/invalid Groq key cannot be fixed by
+model defaults alone.
+The retry/fallback notes below apply to every hosted provider.
 
-Existing invoice records lacking saved scores can show clearly labeled **historic estimates based on their saved OCR text**. They are not identical to extraction-time scores; if no OCR text was saved, no score is fabricated. When someone manually changes a field or line-item cell, the previous automatic score is invalidated and marked *manual edit* rather than silently reused. This feature never changes financial values to force an equation to reconcile and does not make an additional cloud request. Back up your database first; startup automatically adds the nullable `field_evidence` column to an older SQLite database.
+## Using OpenRouter instead of local Ollama
 
-## October 21 — simplified verification display
+1. Create a key at https://openrouter.ai/keys and put it in your **.env** (never commit it):
 
-Confidence remains saved per field and line-item cell, but percentages are hidden on the History detail screen. Only values with actionable extraction warnings are highlighted in amber; hover over a highlighted header field for its warning or expand **View verification reasons** to read all flagged fields and cells. Manually corrected fields are not marked as unverified merely because the previous automatic OCR confidence was invalidated. Arithmetic/validation warnings remain visible. This is a UI-only change: invoice data, extraction logic, and confidence scoring have not changed.
+   ```
+   LLM_PROVIDER=openrouter
+   OPENROUTER_API_KEY=sk-or-...
+   OPENROUTER_MODEL=openrouter/free
+   ```
 
-## October 21 — financial detail display and optional fields
+2. Restart the app. Text extraction, AI Search and (if enabled) vision verification all go through OpenRouter.
+   Set `LLM_PROVIDER=ollama` to switch back to the local models.
 
-The History details panel now displays `0.00` for **unextracted** values in Vatable Sales, VAT-Exempt Sales, Zero-Rated Sales, VAT, Withholding Tax, and Total Amount Due. This is a **display placeholder**, not an actual extracted zero: missing amounts remain `NULL` in SQLite so validation, search, and review can distinguish them from explicitly recorded zeros. A single small explanatory note appears when any of those values was unextracted, and missing Total Amount Due continues to raise a review warning. Opening an invoice in Edit and saving without changing an optional zero does not replace a missing value with a stored zero.
+With `LLM_PROVIDER=ollama` the local-model path is exactly the original: same requests, same options, same timeouts.
 
-Due Date, Tax Rate, and Payment Terms are optional document fields. Due Date supports payment scheduling, Tax Rate can aid tax review where applicable, and Payment Terms records conditions such as Cash/Net 30. They are retained internally and are not required for invoice acceptance. They are not displayed in client invoice details or reports.
+Retries: transient OpenRouter failures (HTTP 408/425/429/5xx, connection errors, an empty answer, or an answer that is
+not valid JSON) are retried up to `OPENROUTER_MAX_RETRIES` times with exponential backoff (`Retry-After` is honoured),
+within `OPENROUTER_RETRY_BUDGET_SECONDS`. Timeouts get `OPENROUTER_TIMEOUT_RETRIES` extra tries. Permanent errors
+(400/401/402/403/404) are not retried. Each retry is recorded in the diagnostic trace (`usage.retries`).
 
-### Client-facing invoice fields
+Automatic fallback: with `LLM_FALLBACK_TO_OLLAMA=true` (default), a failed OpenRouter request (invalid key, no credits,
+rate limit, timeout, 5xx) is repeated on local Ollama, and OpenRouter is skipped for `OPENROUTER_COOLDOWN_SECONDS`
+(600s for 401/402/403) or `OPENROUTER_SHORT_COOLDOWN_SECONDS` (60s otherwise). Ollama must be running with the
+model pulled for the fallback to work. Failover details are stored in the diagnostic trace (`fallback_from`).
 
-Due Date, Tax Rate and Payment Terms are **not displayed** in the History
-invoice detail (or its edit form), nor included in generated invoice CSV,
-Excel or PDF reports and print previews. These optional values remain in the
-internal database/extraction/validation pipeline for backward compatibility.
-Do not interpret this visibility change as deletion of existing stored data.
+Notes: `openrouter/free` picks a random free model per request, so results can vary between calls and free models
+are rate limited. Invoice text/images are sent to third-party providers - do not use free models for sensitive documents
+unless you have checked their data policies. Pin a specific model id in `OPENROUTER_MODEL` for repeatable results.
 
-## October 21, 2026 — approved History detail fields
+## Quick start
 
-The **History invoice detail heading uses the uploaded filename** (for example,
-`INV-39.png`), with invoice number or internal record ID used only as a fallback
-when the filename is unavailable. The filename is no longer repeated among the
-detail fields. **Invoice #** remains in the approved details exactly once. The
-edit-screen heading follows the same filename-first convention.
+```bash
+pip install -r requirements.txt
+# Windows: copy .env.example .env (then set your API key or choose Ollama)
+cp .env.example .env
+# For local-only/fallback extraction: ollama pull qwen2.5:7b
+# Optional local vision: ollama pull qwen2.5vl:7b
+python app.py ui
+```
 
-Only these client-approved fields are shown in the History detail panel:
+Use **one invoice per uploaded file** (a genuine multi-page invoice is supported, multiple
+separate invoices in a file are rejected). Scan one invoice at a time. PHP amounts may be
+marked `PHP`, `₱`, or `P` in a monetary context; USD amounts are stored and reported
+separately from PHP. **Never add PHP and USD totals without an explicit exchange rate**.
 
-- **Document details:** Vendor, Vendor Address, Vendor TIN, Customer,
-  Customer Address, Customer TIN, Plate # (when present), Invoice #,
-  Invoice Date, Date Uploaded, Category.
-- **Financial and state details:** Vatable Sales, VAT-Exempt Sales,
-  Zero-Rated Sales, VAT, Withholding Tax, Total Amount Due, Currency,
-  Status, Locked.
+Missing Vendor, Invoice #, Invoice Date, Total Amount Due, and future Invoice Dates are
+flagged for review. Highlighted values need source verification. Source confidence remains
+internal. The system does not automatically repair already-saved database records; reprocess
+or edit them (while keeping a backup) to benefit from new extraction rules.
 
-**Customer Contact, Current Charges and Previous Balance are hidden as
-standalone summary fields**, as are Due Date, Tax Rate and Payment Terms.
-These values remain stored internally and available to the validation
-pipeline. They are omitted from CSV, Excel, PDF and print-report export
-columns. Existing *genuine extracted line items* named Current Charges or
-Previous Balance still appear in the line-item table, but the system does not
-add synthetic line items from the summary fields (which could double-count
-statement totals). Confidence review highlights and financial validation
-warnings remain available for the approved fields.
+See `docs/user_manual.md` for full setup instructions, `docs/architecture.md`
+for how the pipeline fits together, and `docs/api.md` for the REST API.
 
-Reports still include the existing technical **ID** and **Filename** columns
-for record traceability; this History-only heading change does not alter those
-identifiers in report exports. The History page never repeats Filename as a
-detail field.
+## Tech stack
 
-**Line-item quantity display:** In History, whole quantities are shown without trailing decimal places; fractional quantities are preserved when present (for example, 1 and 0.75). This is display-only and does not modify quantities stored or used in calculations.
+| Category | Tool |
+|---|---|
+| Language | Python 3.11+ |
+| UI | Streamlit |
+| OCR | PaddleOCR (primary), Tesseract, EasyOCR |
+| AI | Ollama (Qwen 2.5 / Llama 3) |
+| Image processing | OpenCV, Pillow |
+| PDF processing | PyMuPDF |
+| Database | SQLite + SQLAlchemy |
+| Validation | Pydantic |
+| Data / export | pandas, openpyxl, reportlab |
+| API | FastAPI + uvicorn |
+| Testing | pytest |
+
+## Project structure
+
+See `docs/architecture.md` for a full breakdown of each folder's role.
+
+## Running tests
+
+```bash
+pytest tests/ -v
+```
+
+
+## Login & user accounts (offline)
+
+The UI requires a sign-in. Accounts live in the local `users` table (passwords stored as salted PBKDF2-SHA256 hashes — no external service).
+Every logged action (upload, edit, lock, delete, export…) is recorded in the **Log** page under the signed-in username.
+
+* **First run:** an admin account is created automatically — username `admin`, password `admin1234`
+  (override with `DEFAULT_ADMIN_USERNAME` / `DEFAULT_ADMIN_PASSWORD` in `.env` *before* first start). You are forced to choose a new password at first login.
+* **Admins** get a **Users** page to create accounts, deactivate/reactivate, change roles and reset passwords. New/reset accounts must set their own password at next login.
+* Login is restored from a local browser cookie after refresh or reconnect while the same Streamlit server process is running. Stopping/restarting Streamlit or shutting down the PC requires a new sign-in. Use **Sign out** to end it. Clearing browser cookies, disabling an account, or resetting its password also invalidates access.
+* Each new sign-in opens **Home**. Signing out clears temporary Upload results and page selections; saved invoices remain in History.
+* The REST API (`api/`) is not covered by this login; changes made through it are logged under the PC's OS username.
+
+**Multi-PC use:** see `SETUP_SERVER.md` (one Host PC runs `start_server.bat`; other PCs just open its address in a browser).
+
+## Scanner, log downloads, and printing
+
+Upload now supports direct flatbed scanning through free NAPS2 on Windows. Log downloads all filtered/searched records as Excel, CSV, or PDF and supports printing. Reports prints the same A3 PDF layout used by Generate Export, with browser printer selection. See [SCANNER_PRINT_SETUP.md](SCANNER_PRINT_SETUP.md) for installation and use.
+
+## CPU speed and verification reliability
+
+See [CPU_SPEED_UPDATE.md](CPU_SPEED_UPDATE.md) for the batch vision-timeout guard, earlier cleanup before text correction, review warnings, and new timing fields. Both improvements are enabled by default without changing your existing .env.
+
+## October 26, 2026 document-evidence QA revision
+
+This build is based on `AI-Invoice-OCR-API-Ollama-Dan-QA-Fixed-v6.zip`. It adds source-evidence checks for utility/telecom statement amounts, addresses, credits and line items, and highlights genuinely unverified date/identifier/tax facts rather than hardcoding one invoice's expected answers. See `docs/QA_EVIDENCE_REVIEW_2026-10-26.md` for individual invoice findings and limitations. The optional low-resolution image utility is `tools/enhance_low_resolution_invoice.py`.
+
+Use **one invoice per file**; an invoice may itself have multiple pages. Enhanced images cannot regenerate text lost in the original capture, and missing VATable Sales or VAT must not be interpreted as a confirmed zero. Previously saved database records are not rewritten by this upgrade.
+
+## Consolidated October 26 edition — approved UI and conditional vision
+
+This edition includes the source-based October 26 QA corrections **plus** the October 23 conditional vision, evidence-based review highlights and client-approved History/export interface. Refer to [`CONSOLIDATION_NOTES_2026-10-26.md`](CONSOLIDATION_NOTES_2026-10-26.md) for the exact behavior and limitations.
+
+- With `VISION_VERIFICATION_ENABLED=true`, `qwen2.5vl:7b` is used for difficult invoices, not automatically for every clean printed invoice. The app checks availability before uploads and skips optional local vision if the model is missing; text OCR/LLM processing remains available.
+- History shows the uploaded filename as heading, compact amber verification flags, and the approved invoice/financial fields only. Overall confidence stays internal; evidence is stored for fields and individual line-item cells.
+- Upload **one invoice per file**. Multiple pages of the **same** invoice are supported when correctly grouped. Multiple separate invoices in one file are rejected without saving partial results.
+- Export columns exclude internal fields such as Due Date, Tax Rate, Payment Terms, Customer Contact, Current Charges Total and Previous Balance.
+- A missing amount may appear as `0.00` in the History display, but remains missing in the database; never treat an inferred zero as a confirmed amount.
+
+## October 28, 2026 QA update
+
+- Corrected Bill-to ownership for invoices where metadata table headings appear before the
+  customer name in OCR reading order (for example, NOTARIZE INV-29).
+- Highlight future invoice dates even when the OCR confidence is high; missing required
+  fields continue to trigger `needs_review`.
+- Isolate monetary summaries by **currency** on Dashboard, Reports, exports, and charts.
+  No automatic exchange-rate conversion is performed; mixed-currency exports have one total
+  row per currency.
+- Updated default API endpoint/model to Groq (`qwen/qwen3.8-27b`); original
+  provider overrides still work.
+- See `docs/QA_OCT28_CHANGELOG.md` for tests and limitations.
