@@ -14,9 +14,11 @@ from ui.components.nav import render_nav, guard_locked_navigation
 from ui.components.ai_search import render_ai_search
 from services.search_service import apply_hybrid_search
 
+from ui.components.design_system import page_heading
+
 st.set_page_config(page_title="Activity Log", page_icon="📋", layout="wide")
 render_nav(); guard_locked_navigation()
-st.title("📋 Activity Log")
+page_heading("Activity log", "Audit processing activity, changes, and account actions.", section="AUDIT TRAIL")
 st.caption(f"Signed in as: {current_app_username()} · Times shown in this PC's local time · Records are newest first.")
 
 
@@ -56,7 +58,7 @@ def _render_log_table(rows: list[dict]) -> None:
     <style>
       .audit-log-wrap {{
         width: 100%; max-height: 460px; overflow: auto;
-        border: 1px solid rgba(128,128,128,.25); border-radius: 6px;
+        border: 1px solid #E4EAF2; border-radius: 12px;
       }}
       table.audit-log {{
         width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 1rem;
@@ -74,7 +76,7 @@ def _render_log_table(rows: list[dict]) -> None:
       }}
       table.audit-log th {{
         position: sticky; top: 0; z-index: 1;
-        background: var(--background-color, white);
+        background: #EAF1FB; color: #23406B;
         font-weight: 600;
       }}
       table.audit-log td:nth-child(6) {{ line-height: 1.45; }}
@@ -184,6 +186,7 @@ logs = list_logs(limit=None)
 if not logs:
     st.info("No user activity has been recorded yet.")
 else:
+    st.markdown('<div class="invoice-section-lead">Search and filters</div>', unsafe_allow_html=True)
     ai_plan = render_ai_search(
         page="log",
         key="log",

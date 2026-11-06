@@ -27,12 +27,14 @@ from services.search_service import apply_hybrid_search
 from utils.file_utils import resolve_source_file
 from utils.pdf_utils import pdf_to_images
 
+from ui.components.design_system import page_heading
+
 st.set_page_config(page_title="Invoice History", page_icon="🗂️", layout="wide")
 
 render_nav()
 guard_locked_navigation()
 
-st.title("🗂️ Invoice History")
+page_heading("Invoice history", "Search, verify, and manage your saved invoice records.", section="RECORDS")
 
 STATUS_OPTIONS = ["processed", "needs_review"]
 
@@ -619,6 +621,7 @@ def render_filters(scope_key: str, invoices_pool: list[dict]) -> list[dict]:
     vendors = sorted({inv["vendor_name"] for inv in invoices_pool if inv.get("vendor_name")})
     custom_categories = list_custom_categories()
     all_categories = CATEGORY_OPTIONS + custom_categories
+    st.markdown('<div class="invoice-section-lead">Search and filters</div>', unsafe_allow_html=True)
     ai_plan = render_ai_search(
         page="history",
         key=f"history_{scope_key}",

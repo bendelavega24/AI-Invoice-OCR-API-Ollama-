@@ -96,8 +96,9 @@ def _render_login() -> None:
     st.markdown(_HIDE_SIDEBAR_CSS, unsafe_allow_html=True)
     _, mid, _ = st.columns([1, 1.2, 1])
     with mid:
-        st.markdown(f"## 🧾 {APP_NAME}")
-        st.caption("Sign in to continue.")
+        st.markdown('<div class="invoice-eyebrow">SECURE ACCESS</div>', unsafe_allow_html=True)
+        st.title("Welcome back")
+        st.caption(f"Sign in to {APP_NAME} to continue managing invoices.")
         with st.form("login_form"):
             username = st.text_input("Username")
             password = st.text_input("Password", type="password")
@@ -114,7 +115,8 @@ def _render_forced_password_change(user: dict) -> None:
     st.markdown(_HIDE_SIDEBAR_CSS, unsafe_allow_html=True)
     _, mid, _ = st.columns([1, 1.2, 1])
     with mid:
-        st.markdown("## 🔑 Set a new password")
+        st.markdown('<div class="invoice-eyebrow">ACCOUNT SECURITY</div>', unsafe_allow_html=True)
+        st.title("Set a new password")
         st.info(f"Hi {user['username']}, you must choose your own password before continuing.")
         with st.form("force_change_form"):
             old = st.text_input("Current password", type="password")

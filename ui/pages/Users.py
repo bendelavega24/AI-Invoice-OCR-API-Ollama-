@@ -12,11 +12,13 @@ from services.user_service import (
 from ui.components.auth import current_user, is_admin
 from ui.components.nav import render_nav, guard_locked_navigation
 
+from ui.components.design_system import page_heading
+
 st.set_page_config(page_title="Users", page_icon="👥", layout="wide")
 render_nav()
 guard_locked_navigation()
 
-st.title("👥 Users")
+page_heading("User management", "Manage account access and permissions.", section="ADMINISTRATION")
 if not is_admin():
     st.error("Only administrators can manage user accounts.")
     st.stop()

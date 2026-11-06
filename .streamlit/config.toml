@@ -1,12 +1,11 @@
 [theme]
-# Tsukiden brand colors, sampled from Logo_TSUKIDEN.png:
-#   primary green  #3AAF11
-#   dark green/ink #1A231F
+# Modern Enterprise UI palette. The navigation rail is styled by
+# ui/components/design_system.py for compatibility with Streamlit 1.38.
 base = "light"
-primaryColor = "#3AAF11"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#F0F6EE"
-textColor = "#1A231F"
+primaryColor = "#2563EB"
+backgroundColor = "#F5F7FB"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#17243B"
 font = "sans serif"
 
 [server]

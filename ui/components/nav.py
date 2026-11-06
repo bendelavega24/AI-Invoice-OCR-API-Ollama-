@@ -17,6 +17,7 @@ from config.constants import APP_NAME, APP_VERSION, COMPANY_NAME, COPYRIGHT_YEAR
 from ai import llm_client
 from config.settings import settings
 from ui.components.auth import require_login, render_account_box, is_admin
+from ui.components.design_system import apply_modern_theme
 
 # (path relative to the main script ui/streamlit_app.py, label, icon)
 _PAGES = [
@@ -34,79 +35,6 @@ _ADMIN_PAGES = [
 
 _UPLOAD_PAGE = "pages/Upload.py"
 
-_GLOBAL_FONT_CSS = """
-<style>
-/* Increase general UI text without enlarging each page's st.title().
-   Streamlit 1.38 bases most typography on rem, so a larger root size scales
-   body text, labels, controls, captions, tables, and sidebar navigation in a
-   consistent way. */
-html {
-    font-size: 18px;
-}
-
-/* Keep page titles at Streamlit's original ~44px size even though the rem
-   base above is larger. This applies to the main app area only. */
-[data-testid="stAppViewContainer"] h1 {
-    font-size: 44px !important;
-    line-height: 1.2 !important;
-}
-
-/* Components that pin their own text size need explicit overrides so the
-   increase is visible consistently across the entire UI. */
-[data-testid="stMarkdownContainer"] p,
-[data-testid="stMarkdownContainer"] li,
-[data-testid="stCaptionContainer"],
-[data-testid="stDataFrame"] div,
-[data-testid="stMetricValue"],
-[data-testid="stMetricLabel"],
-.stButton button,
-.stDownloadButton button,
-.stSelectbox label,
-.stMultiSelect label,
-.stTextInput label,
-.stNumberInput label,
-.stTextArea label,
-.stCheckbox label,
-.stRadio label,
-[data-testid="stFileUploader"] label,
-[data-testid="stFileUploader"] small,
-[data-testid="stPageLink-NavLink"] p {
-    font-size: 1rem !important;
-}
-
-/* Narrow windows get an extra body-text bump, while the page title remains
-   fixed at 44px above. */
-@media (max-width: 900px) {
-    html {
-        font-size: 20px;
-    }
-}
-</style>
-"""
-
-_SIDEBAR_CSS = """
-<style>
-[data-testid="stSidebarNav"] { display: none; }
-
-/* Stretch the sidebar's own content area to full height and lay it out as
-   a column, so the footer (margin-top: auto) sticks to the bottom instead
-   of just trailing after the nav links. */
-[data-testid="stSidebarUserContent"] {
-    display: flex;
-    flex-direction: column;
-    min-height: calc(100vh - 3rem);
-}
-.tsukiden-sidebar-footer {
-    margin-top: auto;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(26, 35, 31, 0.12);
-    font-size: 0.75rem;
-    line-height: 1.5;
-    color: #5b6b60;
-}
-</style>
-"""
-
 
 def is_upload_locked() -> bool:
     return bool(st.session_state.get("upload_in_progress", False))
@@ -115,19 +43,26 @@ def is_upload_locked() -> bool:
 def render_nav() -> None:
     """Render the sidebar: title, nav links (disabled but Upload while an
     upload is in progress), and a footer pinned to the bottom."""
-    st.markdown(_GLOBAL_FONT_CSS, unsafe_allow_html=True)
-    st.markdown(_SIDEBAR_CSS, unsafe_allow_html=True)
+    apply_modern_theme()
     require_login()  # shows the sign-in form and halts the page if nobody is logged in
     locked = is_upload_locked()
 
     with st.sidebar:
-        st.markdown(f"## 🧾 {APP_NAME}")
+        st.markdown(
+            '<div class="invoice-brand">'
+            '<div class="invoice-brand-mark">AI</div>'
+            '<div><div class="invoice-brand-name">Invoice OCR</div>'
+            '<div class="invoice-brand-sub">DOCUMENT INTELLIGENCE</div></div></div>',
+            unsafe_allow_html=True,
+        )
+        st.markdown('<div class="invoice-sidebar-label">Workspace</div>', unsafe_allow_html=True)
         if locked:
             st.warning("⏳ Upload in progress — other tabs are locked until it finishes.")
         for path, label, icon in _PAGES + (_ADMIN_PAGES if is_admin() else []):
             st.page_link(path, label=label, icon=icon, disabled=locked and path != _UPLOAD_PAGE)
 
         st.divider()
+        st.markdown('<div class="invoice-sidebar-label">Processing mode</div>', unsafe_allow_html=True)
         _render_engine_selector(locked)
         st.divider()
         render_account_box(locked=locked)

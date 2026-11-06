@@ -13,6 +13,8 @@ from services.invoice_service import process_invoice_file
 from ai.vision_budget import vision_batch, preflight_local_vision_model
 from ui.components.nav import render_nav
 
+from ui.components.design_system import page_heading, help_note
+
 st.set_page_config(page_title="Upload Invoices", page_icon="📤", layout="wide")
 
 st.session_state.setdefault("upload_in_progress", False)
@@ -22,7 +24,8 @@ st.session_state.setdefault("upload_batch_seconds", None)
 
 render_nav()
 
-st.title("📤 Upload Invoices")
+page_heading("Upload invoices", "Add a scanned image or PDF and review the extracted information.", section="DOCUMENT PROCESSING")
+help_note("Use one invoice per file. A multi-page document is supported when all pages belong to that same invoice.")
 
 locked = st.session_state.upload_in_progress
 

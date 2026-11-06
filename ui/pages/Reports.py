@@ -19,12 +19,14 @@ from ui.components.nav import render_nav, guard_locked_navigation
 from ui.components.ai_search import render_ai_search
 from services.search_service import apply_hybrid_search
 
+from ui.components.design_system import page_heading
+
 st.set_page_config(page_title="Reports & Export", page_icon="📁", layout="wide")
 
 render_nav()
 guard_locked_navigation()
 
-st.title("📁 Reports & Export")
+page_heading("Reports & exports", "Filter invoice data, review totals by currency, and export a report.", section="REPORTING")
 
 
 def _scroll_to_export_if_requested() -> None:
@@ -97,7 +99,7 @@ def _render_preview_table(df: pd.DataFrame) -> None:
         for col in df.columns
     )
     body_rows = "".join(
-        f'<tr style="background:{"#F7FBF6" if i % 2 else "#FFFFFF"}">'
+        f'<tr style="background:{"#F8FAFD" if i % 2 else "#FFFFFF"}">'
         + "".join(f"<td>{html.escape(str(v))}</td>" for v in row)
         + "</tr>"
         for i, (_, row) in enumerate(df.iterrows())
@@ -108,14 +110,14 @@ def _render_preview_table(df: pd.DataFrame) -> None:
         <style>
         .tsukiden-report-table-wrap {{
             width: 100%; max-height: 460px; overflow: auto;
-            border: 1px solid rgba(128,128,128,.25); border-radius: 6px;
+            border: 1px solid #E4EAF2; border-radius: 12px;
         }}
         .tsukiden-report-table {{ width: 100%; border-collapse: collapse; font-size: 1.15rem; }}
         .tsukiden-report-table th {{
             position: sticky; top: 0; z-index: 1;
-            background: #1F4E78; color: white; text-align: left; padding: 0.5rem 0.6rem;
+            background: #EAF1FB; color: #23406B; text-align: left; padding: 0.5rem 0.6rem;
         }}
-        .tsukiden-report-table td {{ padding: 0.5rem 0.6rem; border-bottom: 1px solid #E4E9E3; }}
+        .tsukiden-report-table td {{ padding: 0.5rem 0.6rem; border-bottom: 1px solid #E7EDF4; }}
         </style>
         <div class="tsukiden-report-table-wrap">
         <table class="tsukiden-report-table">
@@ -143,6 +145,7 @@ vendors = sorted({inv["vendor_name"] for inv in all_invoices if inv.get("vendor_
 custom_categories = list_custom_categories()
 all_categories = CATEGORY_OPTIONS + custom_categories
 
+st.markdown('<div class="invoice-section-lead">Search and filters</div>', unsafe_allow_html=True)
 ai_plan = render_ai_search(
     page="reports",
     key="reports",

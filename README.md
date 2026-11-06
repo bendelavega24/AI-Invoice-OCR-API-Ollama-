@@ -7,6 +7,14 @@ PaddleOCR (plus TrOCR for handwriting), structured LLM extraction, evidence chec
 and SQLite storage. Choose Groq API or local Ollama. **API mode transmits invoice content
 and images to a cloud provider**; use local-only mode when required by data-handling rules.
 
+## Modern Enterprise UI (November 5, 2026)
+
+The Streamlit pages now share a modern light dashboard, dark sidebar, responsive
+metrics, and consistent forms, tables, and verification highlights. The
+existing OCR, LLM extraction, search, database and report logic is unchanged.
+See [Modern UI release notes](docs/MODERN_UI_2026-11-05.md) for installation,
+visual QA and rollback steps. Streamlit remains pinned to version 1.38.
+
 ## Features
 
 - Multi-engine OCR with automatic fallback and image preprocessing (deskew,
